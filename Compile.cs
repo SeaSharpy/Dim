@@ -86,7 +86,7 @@ class Program
             "/std:c17",
             "/W4",
             "/Ox",
-            "/arch:AVX2"
+            "/arch:AVX2",
         };
         foreach (var include in includeDirs.Distinct())
         {
@@ -98,6 +98,8 @@ class Program
         args.Add($"/Fe:{Path.Combine(outputDir, $"{packageName}.dll")}");
         args.Add("/link");
         args.Add($"/IMPLIB:{Path.Combine(outputDir, $"{packageName}.lib")}");
+        args.Add("/PDB:NONE");
+        args.Add("/DEBUG:NONE");
 
         int exitCode = RunProcess("clang-cl", args, workingDir);
         if (exitCode != 0)
@@ -757,16 +759,16 @@ class Program
 
         string packageName = Path.GetFileName(inputRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         bool isStdPackage = packageName.Equals("STD", StringComparison.OrdinalIgnoreCase);
-        string stdAllTypesPath = Path.Combine(objRoot, "all_types.h");
 
         if (isStdPackage)
         {
             try
             {
                 Directory.CreateDirectory(binRoot);
+                var srcRoot = Path.GetFullPath(Path.Combine(inputRoot, "src"));
+                string stdAllTypesPath = Path.Combine(srcRoot, "all_types.h");
                 BuildSTD(binRoot, packageName, stdAllTypesPath);
                 string runtimeInclude = Path.GetFullPath(Path.Combine(inputRoot, "..", "Runtime", "include"));
-                var srcRoot = Path.GetFullPath(Path.Combine(inputRoot, "obj"));
                 var stdSources = Directory.Exists(srcRoot)
                     ? Directory.EnumerateFiles(srcRoot, "*.c", SearchOption.AllDirectories)
                     : Array.Empty<string>();
