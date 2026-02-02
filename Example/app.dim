@@ -1,0 +1,45 @@
+import STD;
+namespace Demo;
+
+class App {
+    :void Main! {
+        STD.Print("Demo boot");
+        STD.Print("escape test -> line1\\nline2");
+
+        Vector2.InitStatics!;
+        Counter.Created = 0;
+
+        NamespaceDemo.Ping!;
+        String echo = NamespaceDemo.Echo("Echo OK");
+        Log.Line("echo", echo);
+
+        StdTests.Run!;
+        MathTests.Run!;
+        ConvertTests.Run!;
+        AnyListTests.Run();
+        AnyListTests.Stress(50000);
+        StressTests.Run(200000, 5000);
+        MemoryTests.Run!;
+        Blob? m0 = Maybe.MakeMaybe(false);
+        if m0 != nil;
+        {
+            Blob m1 = m0@; // damnit
+            STD.Print("Maybe: ":Concat(m1:ToString!));
+        }
+
+        Blob? m1 = Maybe.MakeMaybe(true); // locals can be done like this
+        if m1 == nil;
+            STD.Print("Maybe: nil as expected");
+
+        int i = 0;
+        int sum = 0;
+        while i < 10;
+        {
+            sum = sum + i;
+            i = i + 1;
+        }
+        Log.Line("sum0..9", String.FromInt(sum));
+
+        STD.Print("Demo done");
+    }
+}
