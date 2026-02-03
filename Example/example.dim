@@ -34,17 +34,6 @@ class Log {
     }
 }
 
-class NamespaceDemo {
-    static STD::String Echo(STD::String input) {
-        return input;
-    }
-
-    static void Ping! {
-        STD.Print("Ping from NamespaceDemo");
-        return;
-    }
-}
-
 // Vector math with mixed typing, static fields, instance fields, and methods.
 class Vector2 {
     float x;
