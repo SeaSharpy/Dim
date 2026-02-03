@@ -18,8 +18,3 @@ typedef struct STD_List {
     bool seen;
     STD_Any **data;
 } STD_List;
-// STD::STD
-typedef struct STD_STD {
-    Definition *definition;
-    bool seen;
-} STD_STD;
