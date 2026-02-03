@@ -196,7 +196,7 @@ public static class Parser
                 var instanceFields = new List<Field>();
                 while (!tokens.IsSymbol("}"))
                 {
-                    bool static_ = tokens.IsSymbol(":");
+                    bool static_ = tokens.IsIdentifier("static");
                     string typeId = tokens.Identifier(out int typeLine);
                     Type? type = null;
                     if (typeId != "void")
