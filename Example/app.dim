@@ -9,10 +9,6 @@ class App {
         Vector2.InitStatics!;
         Counter.Created = 0;
 
-        NamespaceDemo.Ping!;
-        String echo = NamespaceDemo.Echo("Echo OK");
-        Log.Line("echo", echo);
-
         StdTests.Run!;
         MathTests.Run!;
         ConvertTests.Run!;
