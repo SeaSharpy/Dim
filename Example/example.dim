@@ -2,7 +2,7 @@ import STD;
 namespace Demo;
 
 class Log {
-    :double Begin(String label) {
+    static double Begin(String label) {
         double now = STD.TimeMS!;
         STD.Print("");
         STD.Print("== ":Concat(label));
@@ -10,7 +10,7 @@ class Log {
         return now;
     }
 
-    :void End(String label, double start) {
+    static void End(String label, double start) {
         double end = STD.TimeMS!;
         double elapsed = end - start;
         String line = label:Concat(" done in ")
@@ -21,25 +21,25 @@ class Log {
         STD.Print(line);
     }
 
-    :void Line(String label, String value) {
+    static void Line(String label, String value) {
         STD.Print(label:Concat(": "):Concat(value));
     }
 
-    :void Header(String label) {
+    static void Header(String label) {
         STD.Print(label:Concat(":"));
     }
 
-    :void Item(String label, String value) {
+    staticvoid Item(String label, String value) {
         STD.Print("  ":Concat(label):Concat(" = "):Concat(value));
     }
 }
 
 class NamespaceDemo {
-    :STD::String Echo(STD::String input) {
+    static STD::String Echo(STD::String input) {
         return input;
     }
 
-    :void Ping! {
+    static void Ping! {
         STD.Print("Ping from NamespaceDemo");
         return;
     }
@@ -50,11 +50,11 @@ class Vector2 {
     float x;
     float y;
 
-    :Vector2 Zero;
-    :Vector2 UnitX;
-    :Vector2 UnitY;
+    static Vector2 Zero;
+    static Vector2 UnitX;
+    static Vector2 UnitY;
 
-    :Vector2 New(float px, float py) {
+    static Vector2 New(float px, float py) {
         Vector2 v = new;
         v:Init(px, py);
         return v;
@@ -79,11 +79,11 @@ class Vector2 {
         return v;
     }
 
-    :float Dot(Vector2 a, Vector2 b) {
+    static float Dot(Vector2 a, Vector2 b) {
         return (a.x * b.x) + (a.y * b.y);
     }
 
-    :void InitStatics! {
+    static void InitStatics! {
         Vector2.Zero = Vector2.New(0, 0);
         Vector2.UnitX = Vector2.New(1, 0);
         Vector2.UnitY = Vector2.New(0, 1);
@@ -91,13 +91,13 @@ class Vector2 {
 }
 
 class Counter {
-    :int Created;
+    static int Created;
 
-    :void Bump! {
+    static void Bump! {
         Counter.Created = Counter.Created + 1;
     }
 
-    :int Next! {
+    static int Next! {
         Counter.Created = Counter.Created + 1;
         return Counter.Created;
     }
@@ -109,10 +109,10 @@ class Blob {
     Vector2 pos;
     String tag;
 
-    :Blob KeepA;
-    :Blob KeepB;
+    static Blob KeepA;
+    static Blob KeepB;
 
-    :Blob New(int id, double value, Vector2 pos, String tag) {
+    static Blob New(int id, double value, Vector2 pos, String tag) {
         Blob b = new;
         b:Init(id, value, pos, tag);
         return b;
@@ -137,7 +137,7 @@ class Blob {
 }
 
 class Maybe {
-    :Blob? MakeMaybe(bool make) {
+    static Blob? MakeMaybe(bool make) {
         if make;
         {
             Vector2 pos = Vector2.New(2, 3);
@@ -148,7 +148,7 @@ class Maybe {
 }
 
 class StdTests {
-    :void Run! {
+    static void Run! {
         double t0 = Log.Begin("STD String + core");
 
         String a = "alpha";
@@ -216,7 +216,7 @@ class StdTests {
 }
 
 class MathTests {
-    :void Run! {
+    static void Run! {
         double t0 = Log.Begin("Math + operators");
 
         // Double math
@@ -451,7 +451,7 @@ class MathTests {
 }
 
 class ConvertTests {
-    :void Run! {
+    static void Run! {
         double t0 = Log.Begin("MathC conversions");
 
         bool vBool = true;
@@ -727,7 +727,7 @@ class ConvertTests {
 }
 
 class AnyListTests {
-    :void Run! {
+    static void Run! {
         double t0 = Log.Begin("Any list");
 
         List list = List.New!;
@@ -766,7 +766,7 @@ class AnyListTests {
         Log.End("Any list", t0);
     }
 
-    :void Stress(int total) {
+    ststic void Stress(int total) {
         double t0 = Log.Begin("Any list stress");
         List list = List.New!;
 
@@ -799,7 +799,7 @@ class AnyListTests {
 
 
 class StressTests {
-    :void Run(int itotal, int ikeepEvery) {
+    static void Run(int itotal, int ikeepEvery) {
         double t0 = Log.Begin("Allocation stress");
         int total = itotal;
         int keepEvery = ikeepEvery;
@@ -873,7 +873,7 @@ class StressTests {
 }
 
 class MemoryTests {
-    :void Run! {
+    static void Run! {
         double t0 = Log.Begin("Memory test (1 GB strings)");
         int entryCount = 1000000;
         int chunkLength = 1024;
@@ -912,7 +912,7 @@ class MemoryTests {
         Log.End("Memory test (1 GB strings)", t0);
     }
 
-    :String MakeChunk(int length) {
+    static String MakeChunk(int length) {
         String chunk = "";
         int i = 0;
         while i < length;
