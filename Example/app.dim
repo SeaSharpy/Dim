@@ -2,7 +2,7 @@ import STD;
 namespace Demo;
 
 class App {
-    :void Main! {
+    static void Main! {
         STD.Print("Demo boot");
         STD.Print("escape test -> line1\\nline2");
 
