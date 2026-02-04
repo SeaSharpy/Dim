@@ -53,6 +53,7 @@ public class TokenSet
     private Token SafeGet(int idx)
     {
         if (idx < 0 || idx >= tokens.Count) throw new Exception("Token index out of range");
+        //Console.WriteLine($"SafeGet {idx}: {tokens[idx].value} ({tokens[idx].type})");
         return tokens[idx];
     }
     public bool Safe()

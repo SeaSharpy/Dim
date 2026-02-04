@@ -1,36 +1,38 @@
 import STD;
 namespace Demo;
 
+//using STD; // automatically inserted, adding this would cause an ambiguity error
+
 class Log {
     static double Begin(String label) {
-        double now = STD.TimeMS!;
-        STD.Print("");
-        STD.Print("== ":Concat(label));
-        STD.Print("  start=":Concat(String.FromDouble(now)):Concat(" ms"));
+        double now = TimeMS!;
+        Print(""); // This works for all methods inside the same class, or you can use the using keyword to get C# using static like behaviour
+        Print("== ".Concat(label));
+        Print("  start=".Concat(MathC.ToString(now)).Concat(" ms"));
         return now;
     }
 
     static void End(String label, double start) {
-        double end = STD.TimeMS!;
+        double end = TimeMS!;
         double elapsed = end - start;
-        String line = label:Concat(" done in ")
-            :Concat(String.FromDouble(elapsed))
-            :Concat(" ms (end=")
-            :Concat(String.FromDouble(end))
-            :Concat(" ms)");
-        STD.Print(line);
+        String line = label.Concat(" done in ")
+            .Concat(MathC.ToString(elapsed))
+            .Concat(" ms (end=")
+            .Concat(MathC.ToString(end))
+            .Concat(" ms)");
+        Print(line);
     }
 
     static void Line(String label, String value) {
-        STD.Print(label:Concat(": "):Concat(value));
+        Print(label.Concat(": ").Concat(value));
     }
 
     static void Header(String label) {
-        STD.Print(label:Concat(":"));
+        Print(label.Concat(":"));
     }
 
-    staticvoid Item(String label, String value) {
-        STD.Print("  ":Concat(label):Concat(" = "):Concat(value));
+    static void Item(String label, String value) {
+        Print("  ".Concat(label).Concat(" = ").Concat(value));
     }
 }
 
@@ -45,7 +47,7 @@ class Vector2 {
 
     static Vector2 New(float px, float py) {
         Vector2 v = new;
-        v:Init(px, py);
+        v.Init(px, py);
         return v;
     }
 
@@ -59,12 +61,12 @@ class Vector2 {
     }
 
     float Len! {
-        return MathF.Sqrt(self:LenSq!);
+        return MathF.Sqrt(self.LenSq!);
     }
 
     Vector2 Add(Vector2 other) {
         Vector2 v = new;
-        v:Init(self.x + other.x, self.y + other.y);
+        v.Init(self.x + other.x, self.y + other.y);
         return v;
     }
 
@@ -73,9 +75,9 @@ class Vector2 {
     }
 
     static void InitStatics! {
-        Vector2.Zero = Vector2.New(0, 0);
-        Vector2.UnitX = Vector2.New(1, 0);
-        Vector2.UnitY = Vector2.New(0, 1);
+        Zero = New(0, 0);
+        UnitX = New(1, 0);
+        UnitY = New(0, 1);
     }
 }
 
@@ -103,7 +105,7 @@ class Blob {
 
     static Blob New(int id, double value, Vector2 pos, String tag) {
         Blob b = new;
-        b:Init(id, value, pos, tag);
+        b.Init(id, value, pos, tag);
         return b;
     }
 
@@ -116,12 +118,12 @@ class Blob {
     }
 
     String ToString! {
-        return "Blob(":Concat(String.FromInt(self.id))
-            :Concat(", v=")
-            :Concat(String.FromDouble(self.value))
-            :Concat(", tag=")
-            :Concat(self.tag)
-            :Concat(")");
+        return "Blob(".Concat(MathC.ToString(self.id))
+            .Concat(", v=")
+            .Concat(MathC.ToString(self.value))
+            .Concat(", tag=")
+            .Concat(self.tag)
+            .Concat(")");
     }
 }
 
@@ -142,63 +144,76 @@ class StdTests {
 
         String a = "alpha";
         String b = "beta";
-        String joined = a:Concat(" + "):Concat(b);
+        String joined = a.Concat(" + ").Concat(b);
         String fromString = String.FromString(joined);
         String cloned = String.Clone(fromString);
 
-        int len = cloned:Length!;
-        bool empty = cloned:IsEmpty!;
+        int len = cloned.Length!;
+        bool empty = cloned.IsEmpty!;
         bool eq = String.Equals(a, b);
         int cmp = String.Compare(a, b);
 
-        String sBool = String.FromBool(true);
-        String sInt = String.FromInt(-42);
-        String sUInt = String.FromUInt(42);
-        String sLong = String.FromLong(-42000);
-        String sULong = String.FromULong(42000);
-        String sFloat = String.FromFloat(1.25);
-        String sDouble = String.FromDouble(-3.5);
-        String sByte = String.FromByte(200);
-        String sSByte = String.FromSByte(-100);
-        String sChar = String.FromChar(65);
-        String sShort = String.FromShort(-32000);
-        String sUShort = String.FromUShort(65000);
+        bool vBool = true;
+        int vInt = -42;
+        uint vUInt = 42;
+        long vLong = -42000;
+        ulong vULong = 42000;
+        float vFloat = 1.25;
+        double vDouble = -3.5;
+        byte vByte = 200;
+        sbyte vSByte = -100;
+        char vChar = 65;
+        short vShort = -32000;
+        ushort vUShort = 65000;
 
-        int sumLen = sBool:Length! + sInt:Length! + sUInt:Length! + sLong:Length!;
-        sumLen = sumLen + sULong:Length! + sFloat:Length! + sDouble:Length! + sByte:Length!;
-        sumLen = sumLen + sSByte:Length! + sChar:Length! + sShort:Length! + sUShort:Length!;
+        String sBool = MathC.ToString(vBool);
+        String sInt = MathC.ToString(vInt);
+        String sUInt = MathC.ToString(vUInt);
+        String sLong = MathC.ToString(vLong);
+        String sULong = MathC.ToString(vULong);
+        String sFloat = MathC.ToString(vFloat);
+        String sDouble = MathC.ToString(vDouble);
+        String sByte = MathC.ToString(vByte);
+        String sSByte = MathC.ToString(vSByte);
+        String sChar = MathC.ToString(vChar);
+        String sShort = MathC.ToString(vShort);
+        String sUShort = MathC.ToString(vUShort);
 
-        String samples = "bool=":Concat(sBool)
-            :Concat(" int=")
-            :Concat(sInt)
-            :Concat(" float=")
-            :Concat(sFloat)
-            :Concat(" double=")
-            :Concat(sDouble);
+        int sumLen = sBool.Length! + sInt.Length! + sUInt.Length! + sLong.Length!;
+        sumLen = sumLen + sULong.Length! + sFloat.Length! + sDouble.Length! + sByte.Length!;
+        sumLen = sumLen + sSByte.Length! + sChar.Length! + sShort.Length! + sUShort.Length!;
+
+        String samples = "bool=".Concat(sBool)
+            .Concat(" int=")
+            .Concat(sInt)
+            .Concat(" float=")
+            .Concat(sFloat)
+            .Concat(" double=")
+            .Concat(sDouble);
         Log.Header("strings");
         Log.Item("a", a);
         Log.Item("b", b);
         Log.Item("joined", joined);
-        Log.Item("len", String.FromInt(len));
-        Log.Item("empty", String.FromBool(empty));
-        Log.Item("equals", String.FromBool(eq));
-        Log.Item("compare", String.FromInt(cmp));
-        Log.Item("sumLen", String.FromInt(sumLen));
+        Log.Item("len", MathC.ToString(len));
+        Log.Item("empty", MathC.ToString(empty));
+        Log.Item("equals", MathC.ToString(eq));
+        Log.Item("compare", MathC.ToString(cmp));
+        Log.Item("sumLen", MathC.ToString(sumLen));
         Log.Item("samples", samples);
         String lengthDesc = if len > 0; "non-empty" else "empty";
         Log.Item("if expression", lengthDesc);
-        Any anyStr = a:Box!;
+        Any anyStr = a.Box!;
         String? unboxedStr = String.Unbox(anyStr);
         Vector2 vAnySrc = Vector2.New(5, 6);
-        Any anyVec = vAnySrc:Box!;
+        Any anyVec = vAnySrc.Box!;
         String? wrongUnbox = String.Unbox(anyVec);
         String unboxedLabel = "nil";
         if unboxedStr != nil;
             unboxedLabel = unboxedStr@;
         Log.Header("any");
-        Log.Item("box string ok", String.FromBool(unboxedStr != nil));
+        Log.Item("box string ok", MathC.ToString(unboxedStr != nil));
         Log.Item("unbox string", unboxedLabel);
-        Log.Item("wrong type nil", String.FromBool(wrongUnbox == nil));
+        Log.Item("wrong type nil", MathC.ToString(wrongUnbox == nil));
 
         Log.End("STD String + core", t0);
     }
@@ -320,106 +335,106 @@ class MathTests {
         // Vector ops
         Vector2 a = Vector2.New(3, 4);
         Vector2 b = Vector2.New(-2, 5);
-        Vector2 c = a:Add(b);
-        float len = c:Len!;
+        Vector2 c = a.Add(b);
+        float len = c.Len!;
         float dot = Vector2.Dot(a, b);
 
         double sumD = dSqrt + dPow + dSin + dCos + dTan + dAsin + dAcos + dAtan + dAtan2;
         sumD = sumD + dExp + dLog + dLog10 + dFloor + dCeil + dRound + dFmod + dAbs + dMin + dMax;
-        sumD = sumD + MathC.DoubleFromFloat(fSqrt + fPow + fSin + fCos + fTan + fAsin + fAcos + fAtan + fAtan2);
-        sumD = sumD + MathC.DoubleFromFloat(fExp + fLog + fLog10 + fFloor + fCeil + fRound + fFmod + fAbs + fMin + fMax);
+        sumD = sumD + MathC.ToDouble(fSqrt + fPow + fSin + fCos + fTan + fAsin + fAcos + fAtan + fAtan2);
+        sumD = sumD + MathC.ToDouble(fExp + fLog + fLog10 + fFloor + fCeil + fRound + fFmod + fAbs + fMin + fMax);
 
-        long sumI = MathC.LongFromInt(iMin + iMax + iClamp + iAbs + MathC.IntFromUInt(uiMin + uiMax + uiClamp));
-        sumI = sumI + lMin + lMax + lClamp + lAbs + MathC.LongFromULong(ulMin + ulMax + ulClamp);
-        sumI = sumI + MathC.LongFromShort(sMin + sMax + sClamp + sAbs + MathC.ShortFromUShort(usMin + usMax + usClamp));
-        sumI = sumI + MathC.LongFromSByte(sbMin + sbMax + sbClamp + sbAbs + MathC.SByteFromByte(bMin + bMax + bClamp));
+        long sumI = MathC.ToLong(iMin + iMax + iClamp + iAbs + MathC.ToInt(uiMin + uiMax + uiClamp));
+        sumI = sumI + lMin + lMax + lClamp + lAbs + MathC.ToLong(ulMin + ulMax + ulClamp);
+        sumI = sumI + MathC.ToLong(sMin + sMax + sClamp + sAbs + MathC.ToShort(usMin + usMax + usClamp));
+        sumI = sumI + MathC.ToLong(sbMin + sbMax + sbClamp + sbAbs + MathC.ToSByte(bMin + bMax + bClamp));
 
-        String report = "len=":Concat(String.FromFloat(len))
-            :Concat(" dot=")
-            :Concat(String.FromFloat(dot));
+        String report = "len=".Concat(MathC.ToString(len))
+            .Concat(" dot=")
+            .Concat(MathC.ToString(dot));
         // Use some results so nothing is dead
         int sink = iMin + iMax + iClamp + iAbs + unary + bitflip + sh + bw;
-        sink = sink + MathC.IntFromBool(neg);
+        sink = sink + MathC.ToInt(neg);
 
-        String dLine = "sqrt=":Concat(String.FromDouble(dSqrt))
-            :Concat(" pow=")
-            :Concat(String.FromDouble(dPow))
-            :Concat(" sin=")
-            :Concat(String.FromDouble(dSin))
-            :Concat(" cos=")
-            :Concat(String.FromDouble(dCos))
-            :Concat(" tan=")
-            :Concat(String.FromDouble(dTan))
-            :Concat(" min=")
-            :Concat(String.FromDouble(dMin))
-            :Concat(" max=")
-            :Concat(String.FromDouble(dMax));
+        String dLine = "sqrt=".Concat(MathC.ToString(dSqrt))
+            .Concat(" pow=")
+            .Concat(MathC.ToString(dPow))
+            .Concat(" sin=")
+            .Concat(MathC.ToString(dSin))
+            .Concat(" cos=")
+            .Concat(MathC.ToString(dCos))
+            .Concat(" tan=")
+            .Concat(MathC.ToString(dTan))
+            .Concat(" min=")
+            .Concat(MathC.ToString(dMin))
+            .Concat(" max=")
+            .Concat(MathC.ToString(dMax));
 
-        String fLine = "sqrt=":Concat(String.FromFloat(fSqrt))
-            :Concat(" pow=")
-            :Concat(String.FromFloat(fPow))
-            :Concat(" sin=")
-            :Concat(String.FromFloat(fSin))
-            :Concat(" cos=")
-            :Concat(String.FromFloat(fCos))
-            :Concat(" tan=")
-            :Concat(String.FromFloat(fTan))
-            :Concat(" min=")
-            :Concat(String.FromFloat(fMin))
-            :Concat(" max=")
-            :Concat(String.FromFloat(fMax));
+        String fLine = "sqrt=".Concat(MathC.ToString(fSqrt))
+            .Concat(" pow=")
+            .Concat(MathC.ToString(fPow))
+            .Concat(" sin=")
+            .Concat(MathC.ToString(fSin))
+            .Concat(" cos=")
+            .Concat(MathC.ToString(fCos))
+            .Concat(" tan=")
+            .Concat(MathC.ToString(fTan))
+            .Concat(" min=")
+            .Concat(MathC.ToString(fMin))
+            .Concat(" max=")
+            .Concat(MathC.ToString(fMax));
 
-        String iLine = "iMin=":Concat(String.FromInt(iMin))
-            :Concat(" iMax=")
-            :Concat(String.FromInt(iMax))
-            :Concat(" iClamp=")
-            :Concat(String.FromInt(iClamp))
-            :Concat(" iAbs=")
-            :Concat(String.FromInt(iAbs));
+        String iLine = "iMin=".Concat(MathC.ToString(iMin))
+            .Concat(" iMax=")
+            .Concat(MathC.ToString(iMax))
+            .Concat(" iClamp=")
+            .Concat(MathC.ToString(iClamp))
+            .Concat(" iAbs=")
+            .Concat(MathC.ToString(iAbs));
 
-        String uLine = "uiMin=":Concat(String.FromUInt(uiMin))
-            :Concat(" uiMax=")
-            :Concat(String.FromUInt(uiMax))
-            :Concat(" uiClamp=")
-            :Concat(String.FromUInt(uiClamp));
+        String uLine = "uiMin=".Concat(MathC.ToString(uiMin))
+            .Concat(" uiMax=")
+            .Concat(MathC.ToString(uiMax))
+            .Concat(" uiClamp=")
+            .Concat(MathC.ToString(uiClamp));
 
-        String lLine = "lMin=":Concat(String.FromLong(lMin))
-            :Concat(" lMax=")
-            :Concat(String.FromLong(lMax))
-            :Concat(" lClamp=")
-            :Concat(String.FromLong(lClamp))
-            :Concat(" lAbs=")
-            :Concat(String.FromLong(lAbs));
+        String lLine = "lMin=".Concat(MathC.ToString(lMin))
+            .Concat(" lMax=")
+            .Concat(MathC.ToString(lMax))
+            .Concat(" lClamp=")
+            .Concat(MathC.ToString(lClamp))
+            .Concat(" lAbs=")
+            .Concat(MathC.ToString(lAbs));
 
         String shLine = "short(min/max/clamp/abs)="
-            :Concat(String.FromShort(sMin))
-            :Concat("/")
-            :Concat(String.FromShort(sMax))
-            :Concat("/")
-            :Concat(String.FromShort(sClamp))
-            :Concat("/")
-            :Concat(String.FromShort(sAbs));
+            .Concat(MathC.ToString(sMin))
+            .Concat("/")
+            .Concat(MathC.ToString(sMax))
+            .Concat("/")
+            .Concat(MathC.ToString(sClamp))
+            .Concat("/")
+            .Concat(MathC.ToString(sAbs));
 
         String bLine = "byte(min/max/clamp)="
-            :Concat(String.FromByte(bMin))
-            :Concat("/")
-            :Concat(String.FromByte(bMax))
-            :Concat("/")
-            :Concat(String.FromByte(bClamp));
+            .Concat(MathC.ToString(bMin))
+            .Concat("/")
+            .Concat(MathC.ToString(bMax))
+            .Concat("/")
+            .Concat(MathC.ToString(bClamp));
 
-        String opLine = "hx=":Concat(String.FromInt(hx))
-            :Concat(" bn=")
-            :Concat(String.FromInt(bn))
-            :Concat(" sh=")
-            :Concat(String.FromInt(sh))
-            :Concat(" bw=")
-            :Concat(String.FromInt(bw))
-            :Concat(" neg=")
-            :Concat(String.FromBool(neg))
-            :Concat(" unary=")
-            :Concat(String.FromInt(unary))
-            :Concat(" bitflip=")
-            :Concat(String.FromInt(bitflip));
+        String opLine = "hx=".Concat(MathC.ToString(hx))
+            .Concat(" bn=")
+            .Concat(MathC.ToString(bn))
+            .Concat(" sh=")
+            .Concat(MathC.ToString(sh))
+            .Concat(" bw=")
+            .Concat(MathC.ToString(bw))
+            .Concat(" neg=")
+            .Concat(MathC.ToString(neg))
+            .Concat(" unary=")
+            .Concat(MathC.ToString(unary))
+            .Concat(" bitflip=")
+            .Concat(MathC.ToString(bitflip));
 
         Log.Header("results");
         Log.Item("double", dLine);
@@ -431,9 +446,9 @@ class MathTests {
         Log.Item("bytes", bLine);
         Log.Item("ops", opLine);
         Log.Item("vector", report);
-        Log.Item("mathD", String.FromDouble(sumD));
-        Log.Item("mathI", String.FromLong(sumI));
-        Log.Item("sink", String.FromInt(sink));
+        Log.Item("mathD", MathC.ToString(sumD));
+        Log.Item("mathI", MathC.ToString(sumI));
+        Log.Item("sink", MathC.ToString(sink));
 
         Log.End("Math + operators", t0);
     }
@@ -457,254 +472,254 @@ class ConvertTests {
         ushort vUShort = 65000;
 
         // BoolFrom*
-        bool b0 = MathC.BoolFromBool(vBool);
-        bool b1 = MathC.BoolFromInt(vInt);
-        bool b2 = MathC.BoolFromUInt(vUInt);
-        bool b3 = MathC.BoolFromLong(vLong);
-        bool b4 = MathC.BoolFromULong(vULong);
-        bool b5 = MathC.BoolFromFloat(vFloat);
-        bool b6 = MathC.BoolFromDouble(vDouble);
-        bool b7 = MathC.BoolFromByte(vByte);
-        bool b8 = MathC.BoolFromSByte(vSByte);
-        bool b9 = MathC.BoolFromChar(vChar);
-        bool b10 = MathC.BoolFromShort(vShort);
-        bool b11 = MathC.BoolFromUShort(vUShort);
+        bool b0 = MathC.ToBool(vBool);
+        bool b1 = MathC.ToBool(vInt);
+        bool b2 = MathC.ToBool(vUInt);
+        bool b3 = MathC.ToBool(vLong);
+        bool b4 = MathC.ToBool(vULong);
+        bool b5 = MathC.ToBool(vFloat);
+        bool b6 = MathC.ToBool(vDouble);
+        bool b7 = MathC.ToBool(vByte);
+        bool b8 = MathC.ToBool(vSByte);
+        bool b9 = MathC.ToBool(vChar);
+        bool b10 = MathC.ToBool(vShort);
+        bool b11 = MathC.ToBool(vUShort);
 
         // IntFrom*
-        int i0 = MathC.IntFromBool(vBool);
-        int i1 = MathC.IntFromInt(vInt);
-        int i2 = MathC.IntFromUInt(vUInt);
-        int i3 = MathC.IntFromLong(vLong);
-        int i4 = MathC.IntFromULong(vULong);
-        int i5 = MathC.IntFromFloat(vFloat);
-        int i6 = MathC.IntFromDouble(vDouble);
-        int i7 = MathC.IntFromByte(vByte);
-        int i8 = MathC.IntFromSByte(vSByte);
-        int i9 = MathC.IntFromChar(vChar);
-        int i10 = MathC.IntFromShort(vShort);
-        int i11 = MathC.IntFromUShort(vUShort);
+        int i0 = MathC.ToInt(vBool);
+        int i1 = MathC.ToInt(vInt);
+        int i2 = MathC.ToInt(vUInt);
+        int i3 = MathC.ToInt(vLong);
+        int i4 = MathC.ToInt(vULong);
+        int i5 = MathC.ToInt(vFloat);
+        int i6 = MathC.ToInt(vDouble);
+        int i7 = MathC.ToInt(vByte);
+        int i8 = MathC.ToInt(vSByte);
+        int i9 = MathC.ToInt(vChar);
+        int i10 = MathC.ToInt(vShort);
+        int i11 = MathC.ToInt(vUShort);
 
         // UIntFrom*
-        uint u0 = MathC.UIntFromBool(vBool);
-        uint u1 = MathC.UIntFromInt(vInt);
-        uint u2 = MathC.UIntFromUInt(vUInt);
-        uint u3 = MathC.UIntFromLong(vLong);
-        uint u4 = MathC.UIntFromULong(vULong);
-        uint u5 = MathC.UIntFromFloat(vFloat);
-        uint u6 = MathC.UIntFromDouble(vDouble);
-        uint u7 = MathC.UIntFromByte(vByte);
-        uint u8 = MathC.UIntFromSByte(vSByte);
-        uint u9 = MathC.UIntFromChar(vChar);
-        uint u10 = MathC.UIntFromShort(vShort);
-        uint u11 = MathC.UIntFromUShort(vUShort);
+        uint u0 = MathC.ToUInt(vBool);
+        uint u1 = MathC.ToUInt(vInt);
+        uint u2 = MathC.ToUInt(vUInt);
+        uint u3 = MathC.ToUInt(vLong);
+        uint u4 = MathC.ToUInt(vULong);
+        uint u5 = MathC.ToUInt(vFloat);
+        uint u6 = MathC.ToUInt(vDouble);
+        uint u7 = MathC.ToUInt(vByte);
+        uint u8 = MathC.ToUInt(vSByte);
+        uint u9 = MathC.ToUInt(vChar);
+        uint u10 = MathC.ToUInt(vShort);
+        uint u11 = MathC.ToUInt(vUShort);
 
         // LongFrom*
-        long l0 = MathC.LongFromBool(vBool);
-        long l1 = MathC.LongFromInt(vInt);
-        long l2 = MathC.LongFromUInt(vUInt);
-        long l3 = MathC.LongFromLong(vLong);
-        long l4 = MathC.LongFromULong(vULong);
-        long l5 = MathC.LongFromFloat(vFloat);
-        long l6 = MathC.LongFromDouble(vDouble);
-        long l7 = MathC.LongFromByte(vByte);
-        long l8 = MathC.LongFromSByte(vSByte);
-        long l9 = MathC.LongFromChar(vChar);
-        long l10 = MathC.LongFromShort(vShort);
-        long l11 = MathC.LongFromUShort(vUShort);
+        long l0 = MathC.ToLong(vBool);
+        long l1 = MathC.ToLong(vInt);
+        long l2 = MathC.ToLong(vUInt);
+        long l3 = MathC.ToLong(vLong);
+        long l4 = MathC.ToLong(vULong);
+        long l5 = MathC.ToLong(vFloat);
+        long l6 = MathC.ToLong(vDouble);
+        long l7 = MathC.ToLong(vByte);
+        long l8 = MathC.ToLong(vSByte);
+        long l9 = MathC.ToLong(vChar);
+        long l10 = MathC.ToLong(vShort);
+        long l11 = MathC.ToLong(vUShort);
 
         // ULongFrom*
-        ulong ul0 = MathC.ULongFromBool(vBool);
-        ulong ul1 = MathC.ULongFromInt(vInt);
-        ulong ul2 = MathC.ULongFromUInt(vUInt);
-        ulong ul3 = MathC.ULongFromLong(vLong);
-        ulong ul4 = MathC.ULongFromULong(vULong);
-        ulong ul5 = MathC.ULongFromFloat(vFloat);
-        ulong ul6 = MathC.ULongFromDouble(vDouble);
-        ulong ul7 = MathC.ULongFromByte(vByte);
-        ulong ul8 = MathC.ULongFromSByte(vSByte);
-        ulong ul9 = MathC.ULongFromChar(vChar);
-        ulong ul10 = MathC.ULongFromShort(vShort);
-        ulong ul11 = MathC.ULongFromUShort(vUShort);
+        ulong ul0 = MathC.ToULong(vBool);
+        ulong ul1 = MathC.ToULong(vInt);
+        ulong ul2 = MathC.ToULong(vUInt);
+        ulong ul3 = MathC.ToULong(vLong);
+        ulong ul4 = MathC.ToULong(vULong);
+        ulong ul5 = MathC.ToULong(vFloat);
+        ulong ul6 = MathC.ToULong(vDouble);
+        ulong ul7 = MathC.ToULong(vByte);
+        ulong ul8 = MathC.ToULong(vSByte);
+        ulong ul9 = MathC.ToULong(vChar);
+        ulong ul10 = MathC.ToULong(vShort);
+        ulong ul11 = MathC.ToULong(vUShort);
 
         // FloatFrom*
-        float f0 = MathC.FloatFromBool(vBool);
-        float f1 = MathC.FloatFromInt(vInt);
-        float f2 = MathC.FloatFromUInt(vUInt);
-        float f3 = MathC.FloatFromLong(vLong);
-        float f4 = MathC.FloatFromULong(vULong);
-        float f5 = MathC.FloatFromFloat(vFloat);
-        float f6 = MathC.FloatFromDouble(vDouble);
-        float f7 = MathC.FloatFromByte(vByte);
-        float f8 = MathC.FloatFromSByte(vSByte);
-        float f9 = MathC.FloatFromChar(vChar);
-        float f10 = MathC.FloatFromShort(vShort);
-        float f11 = MathC.FloatFromUShort(vUShort);
+        float f0 = MathC.ToFloat(vBool);
+        float f1 = MathC.ToFloat(vInt);
+        float f2 = MathC.ToFloat(vUInt);
+        float f3 = MathC.ToFloat(vLong);
+        float f4 = MathC.ToFloat(vULong);
+        float f5 = MathC.ToFloat(vFloat);
+        float f6 = MathC.ToFloat(vDouble);
+        float f7 = MathC.ToFloat(vByte);
+        float f8 = MathC.ToFloat(vSByte);
+        float f9 = MathC.ToFloat(vChar);
+        float f10 = MathC.ToFloat(vShort);
+        float f11 = MathC.ToFloat(vUShort);
 
         // DoubleFrom*
-        double d0 = MathC.DoubleFromBool(vBool);
-        double d1 = MathC.DoubleFromInt(vInt);
-        double d2 = MathC.DoubleFromUInt(vUInt);
-        double d3 = MathC.DoubleFromLong(vLong);
-        double d4 = MathC.DoubleFromULong(vULong);
-        double d5 = MathC.DoubleFromFloat(vFloat);
-        double d6 = MathC.DoubleFromDouble(vDouble);
-        double d7 = MathC.DoubleFromByte(vByte);
-        double d8 = MathC.DoubleFromSByte(vSByte);
-        double d9 = MathC.DoubleFromChar(vChar);
-        double d10 = MathC.DoubleFromShort(vShort);
-        double d11 = MathC.DoubleFromUShort(vUShort);
+        double d0 = MathC.ToDouble(vBool);
+        double d1 = MathC.ToDouble(vInt);
+        double d2 = MathC.ToDouble(vUInt);
+        double d3 = MathC.ToDouble(vLong);
+        double d4 = MathC.ToDouble(vULong);
+        double d5 = MathC.ToDouble(vFloat);
+        double d6 = MathC.ToDouble(vDouble);
+        double d7 = MathC.ToDouble(vByte);
+        double d8 = MathC.ToDouble(vSByte);
+        double d9 = MathC.ToDouble(vChar);
+        double d10 = MathC.ToDouble(vShort);
+        double d11 = MathC.ToDouble(vUShort);
 
         // ByteFrom*
-        byte by0 = MathC.ByteFromBool(vBool);
-        byte by1 = MathC.ByteFromInt(vInt);
-        byte by2 = MathC.ByteFromUInt(vUInt);
-        byte by3 = MathC.ByteFromLong(vLong);
-        byte by4 = MathC.ByteFromULong(vULong);
-        byte by5 = MathC.ByteFromFloat(vFloat);
-        byte by6 = MathC.ByteFromDouble(vDouble);
-        byte by7 = MathC.ByteFromByte(vByte);
-        byte by8 = MathC.ByteFromSByte(vSByte);
-        byte by9 = MathC.ByteFromChar(vChar);
-        byte by10 = MathC.ByteFromShort(vShort);
-        byte by11 = MathC.ByteFromUShort(vUShort);
+        byte by0 = MathC.ToByte(vBool);
+        byte by1 = MathC.ToByte(vInt);
+        byte by2 = MathC.ToByte(vUInt);
+        byte by3 = MathC.ToByte(vLong);
+        byte by4 = MathC.ToByte(vULong);
+        byte by5 = MathC.ToByte(vFloat);
+        byte by6 = MathC.ToByte(vDouble);
+        byte by7 = MathC.ToByte(vByte);
+        byte by8 = MathC.ToByte(vSByte);
+        byte by9 = MathC.ToByte(vChar);
+        byte by10 = MathC.ToByte(vShort);
+        byte by11 = MathC.ToByte(vUShort);
 
         // SByteFrom*
-        sbyte sb0 = MathC.SByteFromBool(vBool);
-        sbyte sb1 = MathC.SByteFromInt(vInt);
-        sbyte sb2 = MathC.SByteFromUInt(vUInt);
-        sbyte sb3 = MathC.SByteFromLong(vLong);
-        sbyte sb4 = MathC.SByteFromULong(vULong);
-        sbyte sb5 = MathC.SByteFromFloat(vFloat);
-        sbyte sb6 = MathC.SByteFromDouble(vDouble);
-        sbyte sb7 = MathC.SByteFromByte(vByte);
-        sbyte sb8 = MathC.SByteFromSByte(vSByte);
-        sbyte sb9 = MathC.SByteFromChar(vChar);
-        sbyte sb10 = MathC.SByteFromShort(vShort);
-        sbyte sb11 = MathC.SByteFromUShort(vUShort);
+        sbyte sb0 = MathC.ToSByte(vBool);
+        sbyte sb1 = MathC.ToSByte(vInt);
+        sbyte sb2 = MathC.ToSByte(vUInt);
+        sbyte sb3 = MathC.ToSByte(vLong);
+        sbyte sb4 = MathC.ToSByte(vULong);
+        sbyte sb5 = MathC.ToSByte(vFloat);
+        sbyte sb6 = MathC.ToSByte(vDouble);
+        sbyte sb7 = MathC.ToSByte(vByte);
+        sbyte sb8 = MathC.ToSByte(vSByte);
+        sbyte sb9 = MathC.ToSByte(vChar);
+        sbyte sb10 = MathC.ToSByte(vShort);
+        sbyte sb11 = MathC.ToSByte(vUShort);
 
         // CharFrom*
-        char ch0 = MathC.CharFromBool(vBool);
-        char ch1 = MathC.CharFromInt(vInt);
-        char ch2 = MathC.CharFromUInt(vUInt);
-        char ch3 = MathC.CharFromLong(vLong);
-        char ch4 = MathC.CharFromULong(vULong);
-        char ch5 = MathC.CharFromFloat(vFloat);
-        char ch6 = MathC.CharFromDouble(vDouble);
-        char ch7 = MathC.CharFromByte(vByte);
-        char ch8 = MathC.CharFromSByte(vSByte);
-        char ch9 = MathC.CharFromChar(vChar);
-        char ch10 = MathC.CharFromShort(vShort);
-        char ch11 = MathC.CharFromUShort(vUShort);
+        char ch0 = MathC.ToChar(vBool);
+        char ch1 = MathC.ToChar(vInt);
+        char ch2 = MathC.ToChar(vUInt);
+        char ch3 = MathC.ToChar(vLong);
+        char ch4 = MathC.ToChar(vULong);
+        char ch5 = MathC.ToChar(vFloat);
+        char ch6 = MathC.ToChar(vDouble);
+        char ch7 = MathC.ToChar(vByte);
+        char ch8 = MathC.ToChar(vSByte);
+        char ch9 = MathC.ToChar(vChar);
+        char ch10 = MathC.ToChar(vShort);
+        char ch11 = MathC.ToChar(vUShort);
 
         // ShortFrom*
-        short sh0 = MathC.ShortFromBool(vBool);
-        short sh1 = MathC.ShortFromInt(vInt);
-        short sh2 = MathC.ShortFromUInt(vUInt);
-        short sh3 = MathC.ShortFromLong(vLong);
-        short sh4 = MathC.ShortFromULong(vULong);
-        short sh5 = MathC.ShortFromFloat(vFloat);
-        short sh6 = MathC.ShortFromDouble(vDouble);
-        short sh7 = MathC.ShortFromByte(vByte);
-        short sh8 = MathC.ShortFromSByte(vSByte);
-        short sh9 = MathC.ShortFromChar(vChar);
-        short sh10 = MathC.ShortFromShort(vShort);
-        short sh11 = MathC.ShortFromUShort(vUShort);
+        short sh0 = MathC.ToShort(vBool);
+        short sh1 = MathC.ToShort(vInt);
+        short sh2 = MathC.ToShort(vUInt);
+        short sh3 = MathC.ToShort(vLong);
+        short sh4 = MathC.ToShort(vULong);
+        short sh5 = MathC.ToShort(vFloat);
+        short sh6 = MathC.ToShort(vDouble);
+        short sh7 = MathC.ToShort(vByte);
+        short sh8 = MathC.ToShort(vSByte);
+        short sh9 = MathC.ToShort(vChar);
+        short sh10 = MathC.ToShort(vShort);
+        short sh11 = MathC.ToShort(vUShort);
 
         // UShortFrom*
-        ushort us0 = MathC.UShortFromBool(vBool);
-        ushort us1 = MathC.UShortFromInt(vInt);
-        ushort us2 = MathC.UShortFromUInt(vUInt);
-        ushort us3 = MathC.UShortFromLong(vLong);
-        ushort us4 = MathC.UShortFromULong(vULong);
-        ushort us5 = MathC.UShortFromFloat(vFloat);
-        ushort us6 = MathC.UShortFromDouble(vDouble);
-        ushort us7 = MathC.UShortFromByte(vByte);
-        ushort us8 = MathC.UShortFromSByte(vSByte);
-        ushort us9 = MathC.UShortFromChar(vChar);
-        ushort us10 = MathC.UShortFromShort(vShort);
-        ushort us11 = MathC.UShortFromUShort(vUShort);
+        ushort us0 = MathC.ToUShort(vBool);
+        ushort us1 = MathC.ToUShort(vInt);
+        ushort us2 = MathC.ToUShort(vUInt);
+        ushort us3 = MathC.ToUShort(vLong);
+        ushort us4 = MathC.ToUShort(vULong);
+        ushort us5 = MathC.ToUShort(vFloat);
+        ushort us6 = MathC.ToUShort(vDouble);
+        ushort us7 = MathC.ToUShort(vByte);
+        ushort us8 = MathC.ToUShort(vSByte);
+        ushort us9 = MathC.ToUShort(vChar);
+        ushort us10 = MathC.ToUShort(vShort);
+        ushort us11 = MathC.ToUShort(vUShort);
 
         // Summaries to keep values alive
         int sumI = i0 + i1 + i2 + i3 + i4 + i5 + i6 + i7 + i8 + i9 + i10 + i11;
-        sumI = sumI + MathC.IntFromUInt(u0) + MathC.IntFromUInt(u1) + MathC.IntFromUInt(u2);
-        sumI = sumI + MathC.IntFromUInt(u3) + MathC.IntFromUInt(u4) + MathC.IntFromUInt(u5);
-        sumI = sumI + MathC.IntFromUInt(u6) + MathC.IntFromUInt(u7) + MathC.IntFromUInt(u8);
-        sumI = sumI + MathC.IntFromUInt(u9) + MathC.IntFromUInt(u10) + MathC.IntFromUInt(u11);
-        sumI = sumI + MathC.IntFromBool(b0) + MathC.IntFromBool(b1) + MathC.IntFromBool(b2);
-        sumI = sumI + MathC.IntFromBool(b3) + MathC.IntFromBool(b4) + MathC.IntFromBool(b5);
-        sumI = sumI + MathC.IntFromBool(b6) + MathC.IntFromBool(b7) + MathC.IntFromBool(b8);
-        sumI = sumI + MathC.IntFromBool(b9) + MathC.IntFromBool(b10) + MathC.IntFromBool(b11);
+        sumI = sumI + MathC.ToInt(u0) + MathC.ToInt(u1) + MathC.ToInt(u2);
+        sumI = sumI + MathC.ToInt(u3) + MathC.ToInt(u4) + MathC.ToInt(u5);
+        sumI = sumI + MathC.ToInt(u6) + MathC.ToInt(u7) + MathC.ToInt(u8);
+        sumI = sumI + MathC.ToInt(u9) + MathC.ToInt(u10) + MathC.ToInt(u11);
+        sumI = sumI + MathC.ToInt(b0) + MathC.ToInt(b1) + MathC.ToInt(b2);
+        sumI = sumI + MathC.ToInt(b3) + MathC.ToInt(b4) + MathC.ToInt(b5);
+        sumI = sumI + MathC.ToInt(b6) + MathC.ToInt(b7) + MathC.ToInt(b8);
+        sumI = sumI + MathC.ToInt(b9) + MathC.ToInt(b10) + MathC.ToInt(b11);
 
         long sumL = l0 + l1 + l2 + l3 + l4 + l5 + l6 + l7 + l8 + l9 + l10 + l11;
-        sumL = sumL + MathC.LongFromULong(ul0) + MathC.LongFromULong(ul1) + MathC.LongFromULong(ul2);
-        sumL = sumL + MathC.LongFromULong(ul3) + MathC.LongFromULong(ul4) + MathC.LongFromULong(ul5);
-        sumL = sumL + MathC.LongFromULong(ul6) + MathC.LongFromULong(ul7) + MathC.LongFromULong(ul8);
-        sumL = sumL + MathC.LongFromULong(ul9) + MathC.LongFromULong(ul10) + MathC.LongFromULong(ul11);
+        sumL = sumL + MathC.ToLong(ul0) + MathC.ToLong(ul1) + MathC.ToLong(ul2);
+        sumL = sumL + MathC.ToLong(ul3) + MathC.ToLong(ul4) + MathC.ToLong(ul5);
+        sumL = sumL + MathC.ToLong(ul6) + MathC.ToLong(ul7) + MathC.ToLong(ul8);
+        sumL = sumL + MathC.ToLong(ul9) + MathC.ToLong(ul10) + MathC.ToLong(ul11);
 
         double sumD = d0 + d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8 + d9 + d10 + d11;
-        sumD = sumD + MathC.DoubleFromFloat(f0) + MathC.DoubleFromFloat(f1) + MathC.DoubleFromFloat(f2);
-        sumD = sumD + MathC.DoubleFromFloat(f3) + MathC.DoubleFromFloat(f4) + MathC.DoubleFromFloat(f5);
-        sumD = sumD + MathC.DoubleFromFloat(f6) + MathC.DoubleFromFloat(f7) + MathC.DoubleFromFloat(f8);
-        sumD = sumD + MathC.DoubleFromFloat(f9) + MathC.DoubleFromFloat(f10) + MathC.DoubleFromFloat(f11);
+        sumD = sumD + MathC.ToDouble(f0) + MathC.ToDouble(f1) + MathC.ToDouble(f2);
+        sumD = sumD + MathC.ToDouble(f3) + MathC.ToDouble(f4) + MathC.ToDouble(f5);
+        sumD = sumD + MathC.ToDouble(f6) + MathC.ToDouble(f7) + MathC.ToDouble(f8);
+        sumD = sumD + MathC.ToDouble(f9) + MathC.ToDouble(f10) + MathC.ToDouble(f11);
 
-        sumD = sumD + MathC.DoubleFromByte(by0) + MathC.DoubleFromByte(by1) + MathC.DoubleFromByte(by2);
-        sumD = sumD + MathC.DoubleFromByte(by3) + MathC.DoubleFromByte(by4) + MathC.DoubleFromByte(by5);
-        sumD = sumD + MathC.DoubleFromByte(by6) + MathC.DoubleFromByte(by7) + MathC.DoubleFromByte(by8);
-        sumD = sumD + MathC.DoubleFromByte(by9) + MathC.DoubleFromByte(by10) + MathC.DoubleFromByte(by11);
+        sumD = sumD + MathC.ToDouble(by0) + MathC.ToDouble(by1) + MathC.ToDouble(by2);
+        sumD = sumD + MathC.ToDouble(by3) + MathC.ToDouble(by4) + MathC.ToDouble(by5);
+        sumD = sumD + MathC.ToDouble(by6) + MathC.ToDouble(by7) + MathC.ToDouble(by8);
+        sumD = sumD + MathC.ToDouble(by9) + MathC.ToDouble(by10) + MathC.ToDouble(by11);
 
-        sumD = sumD + MathC.DoubleFromSByte(sb0) + MathC.DoubleFromSByte(sb1) + MathC.DoubleFromSByte(sb2);
-        sumD = sumD + MathC.DoubleFromSByte(sb3) + MathC.DoubleFromSByte(sb4) + MathC.DoubleFromSByte(sb5);
-        sumD = sumD + MathC.DoubleFromSByte(sb6) + MathC.DoubleFromSByte(sb7) + MathC.DoubleFromSByte(sb8);
-        sumD = sumD + MathC.DoubleFromSByte(sb9) + MathC.DoubleFromSByte(sb10) + MathC.DoubleFromSByte(sb11);
+        sumD = sumD + MathC.ToDouble(sb0) + MathC.ToDouble(sb1) + MathC.ToDouble(sb2);
+        sumD = sumD + MathC.ToDouble(sb3) + MathC.ToDouble(sb4) + MathC.ToDouble(sb5);
+        sumD = sumD + MathC.ToDouble(sb6) + MathC.ToDouble(sb7) + MathC.ToDouble(sb8);
+        sumD = sumD + MathC.ToDouble(sb9) + MathC.ToDouble(sb10) + MathC.ToDouble(sb11);
 
-        sumD = sumD + MathC.DoubleFromChar(ch0) + MathC.DoubleFromChar(ch1) + MathC.DoubleFromChar(ch2);
-        sumD = sumD + MathC.DoubleFromChar(ch3) + MathC.DoubleFromChar(ch4) + MathC.DoubleFromChar(ch5);
-        sumD = sumD + MathC.DoubleFromChar(ch6) + MathC.DoubleFromChar(ch7) + MathC.DoubleFromChar(ch8);
-        sumD = sumD + MathC.DoubleFromChar(ch9) + MathC.DoubleFromChar(ch10) + MathC.DoubleFromChar(ch11);
+        sumD = sumD + MathC.ToDouble(ch0) + MathC.ToDouble(ch1) + MathC.ToDouble(ch2);
+        sumD = sumD + MathC.ToDouble(ch3) + MathC.ToDouble(ch4) + MathC.ToDouble(ch5);
+        sumD = sumD + MathC.ToDouble(ch6) + MathC.ToDouble(ch7) + MathC.ToDouble(ch8);
+        sumD = sumD + MathC.ToDouble(ch9) + MathC.ToDouble(ch10) + MathC.ToDouble(ch11);
 
-        sumD = sumD + MathC.DoubleFromShort(sh0) + MathC.DoubleFromShort(sh1) + MathC.DoubleFromShort(sh2);
-        sumD = sumD + MathC.DoubleFromShort(sh3) + MathC.DoubleFromShort(sh4) + MathC.DoubleFromShort(sh5);
-        sumD = sumD + MathC.DoubleFromShort(sh6) + MathC.DoubleFromShort(sh7) + MathC.DoubleFromShort(sh8);
-        sumD = sumD + MathC.DoubleFromShort(sh9) + MathC.DoubleFromShort(sh10) + MathC.DoubleFromShort(sh11);
+        sumD = sumD + MathC.ToDouble(sh0) + MathC.ToDouble(sh1) + MathC.ToDouble(sh2);
+        sumD = sumD + MathC.ToDouble(sh3) + MathC.ToDouble(sh4) + MathC.ToDouble(sh5);
+        sumD = sumD + MathC.ToDouble(sh6) + MathC.ToDouble(sh7) + MathC.ToDouble(sh8);
+        sumD = sumD + MathC.ToDouble(sh9) + MathC.ToDouble(sh10) + MathC.ToDouble(sh11);
 
-        sumD = sumD + MathC.DoubleFromUShort(us0) + MathC.DoubleFromUShort(us1) + MathC.DoubleFromUShort(us2);
-        sumD = sumD + MathC.DoubleFromUShort(us3) + MathC.DoubleFromUShort(us4) + MathC.DoubleFromUShort(us5);
-        sumD = sumD + MathC.DoubleFromUShort(us6) + MathC.DoubleFromUShort(us7) + MathC.DoubleFromUShort(us8);
-        sumD = sumD + MathC.DoubleFromUShort(us9) + MathC.DoubleFromUShort(us10) + MathC.DoubleFromUShort(us11);
+        sumD = sumD + MathC.ToDouble(us0) + MathC.ToDouble(us1) + MathC.ToDouble(us2);
+        sumD = sumD + MathC.ToDouble(us3) + MathC.ToDouble(us4) + MathC.ToDouble(us5);
+        sumD = sumD + MathC.ToDouble(us6) + MathC.ToDouble(us7) + MathC.ToDouble(us8);
+        sumD = sumD + MathC.ToDouble(us9) + MathC.ToDouble(us10) + MathC.ToDouble(us11);
 
-        String inputs = "bool=":Concat(String.FromBool(vBool))
-            :Concat(" int=")
-            :Concat(String.FromInt(vInt))
-            :Concat(" uint=")
-            :Concat(String.FromUInt(vUInt))
-            :Concat(" long=")
-            :Concat(String.FromLong(vLong))
-            :Concat(" float=")
-            :Concat(String.FromFloat(vFloat))
-            :Concat(" double=")
-            :Concat(String.FromDouble(vDouble))
-            :Concat(" byte=")
-            :Concat(String.FromByte(vByte))
-            :Concat(" char=")
-            :Concat(String.FromChar(vChar));
+        String inputs = "bool=".Concat(MathC.ToString(vBool))
+            .Concat(" int=")
+            .Concat(MathC.ToString(vInt))
+            .Concat(" uint=")
+            .Concat(MathC.ToString(vUInt))
+            .Concat(" long=")
+            .Concat(MathC.ToString(vLong))
+            .Concat(" float=")
+            .Concat(MathC.ToString(vFloat))
+            .Concat(" double=")
+            .Concat(MathC.ToString(vDouble))
+            .Concat(" byte=")
+            .Concat(MathC.ToString(vByte))
+            .Concat(" char=")
+            .Concat(MathC.ToString(vChar));
 
-        String sample = "bool->int=":Concat(String.FromInt(i0))
-            :Concat(" int->float=")
-            :Concat(String.FromFloat(f1))
-            :Concat(" float->int=")
-            :Concat(String.FromInt(i5))
-            :Concat(" double->long=")
-            :Concat(String.FromLong(l6))
-            :Concat(" byte->double=")
-            :Concat(String.FromDouble(d7))
-            :Concat(" char->ushort=")
-            :Concat(String.FromUShort(us9));
+        String sample = "bool->int=".Concat(MathC.ToString(i0))
+            .Concat(" int->float=")
+            .Concat(MathC.ToString(f1))
+            .Concat(" float->int=")
+            .Concat(MathC.ToString(i5))
+            .Concat(" double->long=")
+            .Concat(MathC.ToString(l6))
+            .Concat(" byte->double=")
+            .Concat(MathC.ToString(d7))
+            .Concat(" char->ushort=")
+            .Concat(MathC.ToString(us9));
 
-        String sums = "sumI=":Concat(String.FromInt(sumI))
-            :Concat(" sumL=")
-            :Concat(String.FromLong(sumL))
-            :Concat(" sumD=")
-            :Concat(String.FromDouble(sumD));
+        String sums = "sumI=".Concat(MathC.ToString(sumI))
+            .Concat(" sumL=")
+            .Concat(MathC.ToString(sumL))
+            .Concat(" sumD=")
+            .Concat(MathC.ToString(sumD));
 
         Log.Header("conversions");
         Log.Item("inputs", inputs);
@@ -720,68 +735,68 @@ class AnyListTests {
         double t0 = Log.Begin("Any list");
 
         List list = List.New!;
-        list:Add(String.Box("alpha"));
+        list.Add(String.Box("alpha"));
         Vector2 v = Vector2.New(1, 2);
-        list:Add(Vector2.Box(v));
+        list.Add(Vector2.Box(v));
         Blob b = Blob.New(7, 1.5, v, "list");
-        list:Add(Blob.Box(b));
+        list.Add(Blob.Box(b));
 
-        Log.Item("count", String.FromInt(list:Count!));
+        Log.Item("count", MathC.ToString(list.Count!));
 
-        Any? a0 = list[0]; // list[0] is the same as list:Get(0)
+        Any? a0 = list[0]; // list[0] is the same as list.Get(0)
         String? s0 = String.Unbox(a0);
         Log.Item("s0", s0 ?? "nil");
 
         Any? a1 = list[1];
         Vector2? v1 = Vector2.Unbox(a1);
-        Log.Item("v1 ok", String.FromBool(v1 != nil));
+        Log.Item("v1 ok", MathC.ToString(v1 != nil));
 
         Any? a2 = list[2];
         Blob? b1 = Blob.Unbox(a2);
-        Log.Item("b1 ok", String.FromBool(b1 != nil));
+        Log.Item("b1 ok", MathC.ToString(b1 != nil));
 
         Any? missing = list[99];
-        Log.Item("missing nil", String.FromBool(missing == nil));
+        Log.Item("missing nil", MathC.ToString(missing == nil));
 
-        list:RemoveAt(1);
-        Log.Item("after remove", String.FromInt(list:Count!));
+        list.RemoveAt(1);
+        Log.Item("after remove", MathC.ToString(list.Count!));
 
-        Any? popped = list:Pop!;
-        Log.Item("popped nil", String.FromBool(popped == nil));
+        Any? popped = list.Pop!;
+        Log.Item("popped nil", MathC.ToString(popped == nil));
 
-        list:Clear!;
-        Log.Item("after clear", String.FromInt(list:Count!));
+        list.Clear!;
+        Log.Item("after clear", MathC.ToString(list.Count!));
 
         Log.End("Any list", t0);
     }
 
-    ststic void Stress(int total) {
+    static void Stress(int total) {
         double t0 = Log.Begin("Any list stress");
         List list = List.New!;
 
         int i = 0;
         while i < total;
         {
-            String item = "item#":Concat(String.FromInt(i));
-            list:Add(item:Box!);
+            String item = "item#".Concat(MathC.ToString(i));
+            list.Add(item.Box!);
             i = i + 1;
         }
 
-        Log.Line("count", String.FromInt(list:Count!));
+        Log.Line("count", MathC.ToString(list.Count!));
 
         int popped = 0;
         bool done = false;
         while popped < total && !done;
         {
-            Any? v = list:Pop!;
+            Any? v = list.Pop!;
             if v == nil;
                 done = true;
             else
                 popped = popped + 1;
         }
 
-        Log.Line("popped", String.FromInt(popped));
-        Log.Line("final", String.FromInt(list:Count!));
+        Log.Line("popped", MathC.ToString(popped));
+        Log.Line("final", MathC.ToString(list.Count!));
         Log.End("Any list stress", t0);
     }
 }
@@ -808,15 +823,15 @@ class StressTests {
 
         int i = 0;
         int nextReport = reportEvery;
-        double lastReport = STD.TimeMS!;
+        double lastReport = TimeMS!;
         while i < total;
         {
             int id = Counter.Next!;
-            double v = MathC.DoubleFromInt(i) * 0.1;
-            float fx = MathC.FloatFromInt(i);
-            float fy = MathC.FloatFromInt(i + 1);
+            double v = MathC.ToDouble(i) * 0.1;
+            float fx = MathC.ToFloat(i);
+            float fy = MathC.ToFloat(i + 1);
             Vector2 pos = Vector2.New(fx, fy);
-            String tag = "blob#":Concat(String.FromInt(i));
+            String tag = "blob#".Concat(MathC.ToString(i));
             Blob b = Blob.New(id, v, pos, tag);
 
             if (i % keepEvery) == 0;
@@ -827,12 +842,12 @@ class StressTests {
 
             if i >= nextReport;
             {
-                double now = STD.TimeMS!;
-                String msg = "i=":Concat(String.FromInt(i))
-                    :Concat(" dt=")
-                    :Concat(String.FromDouble(now - lastReport))
-                    :Concat(" created=")
-                    :Concat(String.FromInt(Counter.Created));
+                double now = TimeMS!;
+                String msg = "i=".Concat(MathC.ToString(i))
+                    .Concat(" dt=")
+                    .Concat(MathC.ToString(now - lastReport))
+                    .Concat(" created=")
+                    .Concat(MathC.ToString(Counter.Created));
                 Log.Line("alloc", msg);
                 lastReport = now;
                 nextReport = nextReport + reportEvery;
@@ -847,15 +862,15 @@ class StressTests {
         if Blob.KeepB == nil;
             Blob.KeepB = Blob.New(0, 0.0, Vector2.UnitX, "fallback B");
 
-        String kept = "A=":Concat(Blob.KeepA:ToString!)
-            :Concat(" | B=")
-            :Concat(Blob.KeepB:ToString!);
+        String kept = "A=".Concat(Blob.KeepA.ToString!)
+            .Concat(" | B=")
+            .Concat(Blob.KeepB.ToString!);
 
         Log.Header("summary");
-        Log.Item("total", String.FromInt(total));
-        Log.Item("keepEvery", String.FromInt(keepEvery));
-        Log.Item("reportEvery", String.FromInt(reportEvery));
-        Log.Item("created", String.FromInt(Counter.Created));
+        Log.Item("total", MathC.ToString(total));
+        Log.Item("keepEvery", MathC.ToString(keepEvery));
+        Log.Item("reportEvery", MathC.ToString(reportEvery));
+        Log.Item("created", MathC.ToString(Counter.Created));
         Log.Item("kept", kept);
         Log.End("Allocation stress", t0);
     }
@@ -870,45 +885,40 @@ class MemoryTests {
 
         String baseChunk = MemoryTests.MakeChunk(chunkLength);
         List entries = List.New!;
-        double allocStart = STD.TimeMS!;
+        double allocStart = TimeMS!;
         int i = 0;
         while i < entryCount;
         {
             String entry = String.Clone(baseChunk);
-            entries:Add(entry:Box!);
+            entries.Add(entry.Box!);
             i = i + 1;
         }
-        double allocEnd = STD.TimeMS!;
+        double allocEnd = TimeMS!;
 
-        Log.Line("entries held", String.FromInt(entries:Count!));
-        Log.Line("alloc ms", String.FromDouble(allocEnd - allocStart));
+        Log.Line("entries held", MathC.ToString(entries.Count!));
+        Log.Line("alloc ms", MathC.ToString(allocEnd - allocStart));
 
-        double holdStart = STD.TimeMS!;
+        double holdStart = TimeMS!;
         double holdUntil = holdStart + holdMs;
         ulong spin = 0;
-        while STD.TimeMS! < holdUntil;
+        while TimeMS! < holdUntil;
         {
             spin = spin + 1;
         }
-        Log.Line("busy loops", String.FromULong(spin));
+        Log.Line("busy loops", MathC.ToString(spin));
 
-        double releaseStart = STD.TimeMS!;
-        entries:Clear!;
+        double releaseStart = TimeMS!;
+        entries.Clear!;
         gc; // special gc statement to force gc
-        double releaseEnd = STD.TimeMS!;
-        Log.Line("release ms", String.FromDouble(releaseEnd - releaseStart));
-        Log.Line("after clear", String.FromInt(entries:Count!));
+        double releaseEnd = TimeMS!;
+        Log.Line("release ms", MathC.ToString(releaseEnd - releaseStart));
+        Log.Line("after clear", MathC.ToString(entries.Count!));
         Log.End("Memory test (1 GB strings)", t0);
     }
 
     static String MakeChunk(int length) {
-        String chunk = "";
-        int i = 0;
-        while i < length;
-        {
-            chunk = chunk:Concat("x");
-            i = i + 1;
-        }
-        return chunk;
+        return "                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ";
     }
 }
+
+

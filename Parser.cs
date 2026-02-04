@@ -9,11 +9,21 @@ public abstract record Expression(int Line)
 };
 public record LocalExpression(int ID, int Line) : Expression(Line);
 public record ArgumentExpression(int ID, int Line) : Expression(Line);
-public record CallExpression(ClassType Callee, string Name, List<Expression> Arguments, int Line) : Expression(Line);
-public record CallInstanceExpression(Expression Callee, string Name, List<Expression> Arguments, int Line) : Expression(Line);
+public record CallStaticExpression(ClassType Callee, string Name, List<Expression> Arguments, int Line) : Expression(Line)
+{
+    public Method? cachedMethod = null;
+};
+public record CallExpression(string Name, List<Expression> Arguments, int Line) : Expression(Line)
+{
+    public Class? cachedClass = null;
+    public Method? cachedMethod = null;
+};
+public record CallInstanceExpression(string Name, List<Expression> Arguments, int Line) : Expression(Line)
+{
+    public Method? cachedMethod = null;
+};
 public record ClassExpression(ClassType Class, int Line) : Expression(Line);
 public record StaticFieldExpression(ClassType Class, string Field, int Line) : Expression(Line);
-public record MethodIndexExpression(Expression Instance, string Field, int Line) : Expression(Line);
 public record InstanceFieldExpression(Expression Instance, string Field, int Line) : Expression(Line);
 public record NumberExpression(string Value, int Line) : Expression(Line);
 public record StringExpression(string Value, int Line) : Expression(Line);
@@ -27,6 +37,7 @@ public abstract record Statement(int Line);
 public record CallStatement(Expression Expression, int Line) : Statement(Line);
 public record ReturnStatement(Expression? Expression, int Line) : Statement(Line);
 public record GcStatement(int Line) : Statement(Line);
+public record AssignmentStatement(string Name, Expression Expression, int Line) : Statement(Line);
 public record LocalAssignmentStatement(int ID, Expression Expression, int Line) : Statement(Line);
 public record StaticFieldAssignmentStatement(StaticFieldExpression StaticField, Expression Expression, int Line) : Statement(Line);
 public record InstanceFieldAssignmentStatement(InstanceFieldExpression InstanceField, Expression Expression, int Line) : Statement(Line);
@@ -67,10 +78,17 @@ public record ValueType(string Name, int Line = 0) : Type(Name, Line)
         writer.Write(Name);
     }
 };
-public record ClassType(string? Namespace, string Name, int Line = 0) : Type(Name, Line)
+public record ClassType : Type
 {
+    public string? Namespace { get; set; }
     public Class? CachedClass;
     public bool Nullable { get; init; } = false;
+
+    public ClassType(string? ns, string name, int line = 0) : base(name, line)
+    {
+        Namespace = ns;
+    }
+
     public override void BinaryOut(BinaryWriter writer, List<Class> classes)
     {
         writer.Write(true);
@@ -88,7 +106,10 @@ public record ClassType(string? Namespace, string Name, int Line = 0) : Type(Nam
         writer.Write(Nullable);
     }
 };
-public record Method(string Name, List<Type> Arguments, Type? ReturnType, BlockStatement Body, int Line);
+public record Method(string Name, List<Type> Arguments, Type? ReturnType, BlockStatement Body, int Line)
+{
+    public int i;
+};
 public record Field(string Name, Type Type, int Line);
 public record Class(string Namespace, string Name, int Line, List<Method> Methods, List<Field> StaticFields, List<Field> InstanceFields)
 {
@@ -139,7 +160,7 @@ public record Class(string Namespace, string Name, int Line, List<Method> Method
             Type? returnType = null;
             if (hasReturnType)
                 returnType = Type.BinaryIn(reader);
-            methods.Add(new Method(methodName, args, returnType, new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0));
+            methods.Add(new Method(methodName, args, returnType, new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0) { i = i });
         }
         var staticFields = new List<Field>(staticFieldCount);
         for (int i = 0; i < staticFieldCount; i++)
@@ -158,7 +179,7 @@ public record Class(string Namespace, string Name, int Line, List<Method> Method
         return new Class(ns, name, 0, methods, staticFields, instanceFields);
     }
 };
-public record FileParseResult(List<Class> Classes, List<string> ImportedNamespaces, string Path = "");
+public record FileParseResult(List<Class> Classes, List<string> ImportedNamespaces, List<ClassType> UsingTypes, string Path = "");
 public static class Parser
 {
     static Dictionary<string, (Type type, int id)> arguments = new();
@@ -176,24 +197,28 @@ public static class Parser
             throw new Exception($"Error parsing at line {tokens.Get(false).line}: {e.Message}");
         }
     }
+    static string ns = "";
+    static string className = "";
     static List<Field> StaticFields = new();
+    static Dictionary<string, Type> qualified = new();
     public static FileParseResult Parse_(TokenSet tokens)
     {
-        var classes = new List<Class>();
-        var importedNamespaces = new List<string>();
-        importedNamespaces.Add("STD");
-        string ns = "";
+        List<Class> classes = new();
+        List<string> importedNamespaces = ["STD"];
+        List<ClassType> usingTypes = [new ClassType("STD", "STD")];
+        qualified.Clear();
+        ns = "";
         while (tokens.Safe())
             if (tokens.IsIdentifier("class"))
             {
                 if (string.IsNullOrWhiteSpace(ns))
                     throw new Exception("Class must be defined after a namespace");
-                var className = tokens.Identifier(out int classLine);
+                className = tokens.Identifier(out int classLine);
                 tokens.Symbol("{");
-                var methods = new List<Method>();
-                var staticFields = new List<Field>();
+                List<Method> methods = new();
+                List<Field> staticFields = new();
                 StaticFields = staticFields;
-                var instanceFields = new List<Field>();
+                List<Field> instanceFields = new();
                 while (!tokens.IsSymbol("}"))
                 {
                     bool static_ = tokens.IsIdentifier("static");
@@ -240,13 +265,13 @@ public static class Parser
                         var block = ParseBlock(tokens, openLine);
                         localIDs.Pop();
                         locals.Pop();
-                        methods.Add(new Method(name, args, type, block, nameLine));
+                        methods.Add(new Method(name, args, type, block, nameLine) { i = methods.Count });
                     }
                 }
                 if (instanceFields.Count > 0)
                 {
-                    methods.Add(new Method("Box", [new ClassType(ns, className) { Nullable = true }], new ClassType("STD", "Any"), EmptyBlock, classLine));
-                    methods.Add(new Method("Unbox", [new ClassType("STD", "Any") { Nullable = true }], new ClassType(ns, className) { Nullable = true }, EmptyBlock, classLine));
+                    methods.Add(new Method("Box", [new ClassType(ns, className) { Nullable = true }], new ClassType("STD", "Any"), EmptyBlock, classLine) { i = methods.Count });
+                    methods.Add(new Method("Unbox", [new ClassType("STD", "Any") { Nullable = true }], new ClassType(ns, className) { Nullable = true }, EmptyBlock, classLine) { i = methods.Count });
                 }
                 classes.Add(new Class(ns, className, classLine, methods, staticFields, instanceFields));
             }
@@ -261,9 +286,26 @@ public static class Parser
                 ns = tokens.Identifier(out _);
                 tokens.Symbol(";");
             }
+            else if (tokens.IsIdentifier("type"))
+            {
+                string alias = tokens.Identifier(out _);
+                tokens.Symbol("=");
+                string namespace_ = tokens.Identifier(out _);
+                string name = tokens.Identifier(out _);
+                qualified[alias] = new ClassType(namespace_, name);
+                tokens.Symbol(";");
+            }
+            else if (tokens.IsIdentifier("using", out var usingLine))
+            {
+                ClassType type = ParseType(tokens) as ClassType ?? throw new Exception("Expected class type for using");
+                if (type.Nullable)
+                    throw new Exception("Nullable types are not supported for using, wtf are you doing lol");
+                tokens.Symbol(";");
+                usingTypes.Add(type);
+            }
             else
                 throw new Exception("Expected import, namespace, or class");
-        return new FileParseResult(classes, importedNamespaces);
+        return new FileParseResult(classes, importedNamespaces, usingTypes);
     }
     static readonly string[] valueTypes = new[]
     {
@@ -271,13 +313,11 @@ public static class Parser
     };
     static Type ParseType(TokenSet tokens, string typeName, int typeLine)
     {
-        Type type;
-        if (tokens.IsSymbol("::"))
-            type = new ClassType(typeName, tokens.Identifier(out _), typeLine);
-        else if (valueTypes.Contains(typeName))
-            type = new ValueType(typeName, typeLine);
-        else
-            type = new ClassType(null, typeName, typeLine);
+        Type type = valueTypes.Contains(typeName)
+            ? new ValueType(typeName, typeLine)
+            : new ClassType(null, typeName, typeLine);
+        if (qualified.TryGetValue(typeName, out var qualifiedType))
+            type = qualifiedType with { Line = typeLine };
 
         if (tokens.IsSymbol("?"))
         {
@@ -355,7 +395,7 @@ public static class Parser
         {
             tokens.Pop();
             Expression lhs = ParseExpression(tokens);
-            if (lhs is CallExpression or CallInstanceExpression)
+            if (lhs is CallStaticExpression or CallInstanceExpression or CallExpression)
             {
                 tokens.Symbol(";");
                 return new CallStatement(lhs, line);
@@ -371,6 +411,11 @@ public static class Parser
                     return new StaticFieldAssignmentStatement(staticFieldExpression, rhs, line);
                 else if (lhs is InstanceFieldExpression instanceFieldExpression)
                     return new InstanceFieldAssignmentStatement(instanceFieldExpression, rhs, line);
+                else if (lhs is ClassExpression classExpression)
+                    if (classExpression.Class.Nullable)
+                        throw new Exception($"Invalid assignment target");
+                    else
+                        return new AssignmentStatement(classExpression.Class.Name, rhs, line);
                 else
                     throw new Exception($"Invalid assignment target");
             }
@@ -519,14 +564,12 @@ public static class Parser
             else if (arguments.TryGetValue(token.value, out var arg))
                 return new ArgumentExpression(arg.id, token.line);
             else
-                if (tokens.IsSymbol("::"))
-                    return new ClassExpression(new ClassType(token.value, tokens.Identifier(out int line), line), token.line);
-                else
-                    return new ClassExpression(new ClassType(null, token.value, token.line), token.line);
+                return new ClassExpression(new ClassType(null, token.value, token.line), token.line);
+
         else if (token.type == TokenType.Number)
             return new NumberExpression(token.value, token.line);
         else if (token.type == TokenType.String)
-            return new CallExpression(new ClassType("STD", "String"), "New", [new StringExpression(token.value, token.line)], token.line);
+            return new CallStaticExpression(new ClassType("STD", "String"), "New", [new StringExpression(token.value, token.line)], token.line);
         throw new Exception($"Invalid expression {token.value}");
     }
 
@@ -542,24 +585,19 @@ public static class Parser
                     left = new StaticFieldExpression(classExpression.Class, name, nameLine);
                 else
                     left = new InstanceFieldExpression(left, name, nameLine);
-            }
-            bool method = false;
-            if (tokens.IsSymbol(":"))
-            {
-                string name = tokens.Identifier(out int nameLine);
-                left = new MethodIndexExpression(left, name, nameLine);
-                method = true;
+                continue;
             }
             if (tokens.IsSymbol("[", out int bracketLine))
             {
                 var indexArgs = new List<Expression>
                 {
+                    left,
                     ParseExpression(tokens)
                 };
                 if (tokens.IsSymbol(","))
                     throw new Exception("Bracket indexing only supports one argument");
                 tokens.Symbol("]");
-                left = new CallInstanceExpression(left, "Get", indexArgs, bracketLine);
+                left = new CallInstanceExpression("Get", indexArgs, bracketLine);
                 continue;
             }
             if (tokens.IsSymbol(out string callValue, "!", "("))
@@ -567,10 +605,18 @@ public static class Parser
                 List<Expression> arguments = new();
                 Expression call;
                 if (left is StaticFieldExpression staticFieldExpression)
-                    call = new CallExpression(staticFieldExpression.Class, staticFieldExpression.Field, arguments, left.Line);
-                else if (left is MethodIndexExpression staticMethodExpression)
-                    call = new CallInstanceExpression(staticMethodExpression.Instance, staticMethodExpression.Field, arguments, left.Line);
-                else throw new Exception("Invalid call target (must be a method on an instance or a static field)");
+                    call = new CallStaticExpression(staticFieldExpression.Class, staticFieldExpression.Field, arguments, left.Line);
+                else if (left is InstanceFieldExpression instanceFieldExpression)
+                {
+                    call = new CallInstanceExpression(instanceFieldExpression.Field, arguments, left.Line);
+                    arguments.Add(instanceFieldExpression.Instance);
+                }
+                else if (left is ClassExpression classExpression)
+                    if (classExpression.Class.Nullable)
+                        throw new Exception($"Invalid call target (must be a method on an instance or a static)");
+                    else
+                        call = new CallExpression(classExpression.Class.Name, arguments, left.Line);
+                else throw new Exception("Invalid call target (must be a method on an instance or a static)");
                 if (callValue == "(")
                     while (!tokens.IsSymbol(")"))
                     {
@@ -589,8 +635,6 @@ public static class Parser
                 left = new PostfixExpression(left, "@", opLine);
                 continue;
             }
-            else if (method)
-                throw new Exception("Methods on instances must be called");
             return left;
         }
     }

@@ -15,9 +15,6 @@ echo Building package...
 dotnet run Example
 if errorlevel 1 goto :fail
 
-REM cls
-echo Running runtime...
-Runtime\bin\runtime.exe Example\run
 exit /b 0
 
 :fail

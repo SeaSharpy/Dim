@@ -240,23 +240,24 @@ EXPORT bool runtime_load_package(const char *name, RuntimeState *state)
     return true;
 }
 
+static Instance **gc_worklist = NULL;
+static bool gc_epoch = false;
+
 EXPORT void runtime_show_instance(Instance *instance)
 {
     if (!instance)
         return;
-    if (instance->seen)
+    if (instance->seen == gc_epoch)
         return;
-    instance->seen = true;
-    Definition *def = instance->definition;
-    if (def->show_refs)
-        def->show_refs(instance);
+    arrput(gc_worklist, instance);
 }
+
+static double gc_time = 0;
 
 static void runtime_gc_collect(RuntimeState *state)
 {
-    for (int i = 0; i < arrlen(state->instances); i++)
-        state->instances[i]->seen = false;
-    Instance **pinned = NULL;
+    gc_epoch = !gc_epoch;
+    double start = time_ms();
     ReferenceLocal *local = state->locals;
     while (local)
     {
@@ -264,7 +265,7 @@ static void runtime_gc_collect(RuntimeState *state)
         local = local->prev;
         if (!inst)
             continue;
-        arrput(pinned, inst);
+        arrput(gc_worklist, inst);
     }
     for (int i = 0; i < arrlen(state->definitions); i++)
     {
@@ -272,19 +273,23 @@ static void runtime_gc_collect(RuntimeState *state)
         if (def->show_static_refs)
             def->show_static_refs();
     }
-    for (int i = 0; i < arrlen(pinned); i++)
+    while (arrlen(gc_worklist) > 0)
     {
-        Instance *inst = pinned[i];
+        Instance *inst = arrpop(gc_worklist);
         if (!inst)
             continue;
-        runtime_show_instance(inst);
+        inst->seen = gc_epoch;
+        Definition *def = inst->definition;
+        if (def->show_refs)
+            def->show_refs(inst);
     }
-    arrfree(pinned);
+    arrfree(gc_worklist);
+    gc_worklist = NULL;
     unsigned long long cleaned = 0;
     for (int i = 0; i < arrlen(state->instances);)
     {
         Instance *inst = state->instances[i];
-        if (inst && inst->seen)
+        if (inst && inst->seen == gc_epoch)
         {
             i++;
             continue;
@@ -302,6 +307,8 @@ static void runtime_gc_collect(RuntimeState *state)
         arrpop(state->instances);
     }
     state->gc_threshold = state->allocated_bytes * 2;
+    double end = time_ms();
+    gc_time += end - start;
     debugprintf("GC done %llu instances cleaned\n", cleaned);
 }
 
@@ -382,5 +389,6 @@ int main(int argc, char **argv)
 
 exit:
     runtime_free(state);
+    printf("GC time: %f ms\n", gc_time);
     return 0;
 }

@@ -3,8 +3,8 @@ namespace Demo;
 
 class App {
     static void Main! {
-        STD.Print("Demo boot");
-        STD.Print("escape test -> line1\\nline2");
+        Print("Demo boot");
+        Print("escape test -> line1\\nline2");
 
         Vector2.InitStatics!;
         Counter.Created = 0;
@@ -20,12 +20,12 @@ class App {
         if m0 != nil;
         {
             Blob m1 = m0@; // damnit
-            STD.Print("Maybe: ":Concat(m1:ToString!));
+            Print("Maybe: ".Concat(m1.ToString!));
         }
 
         Blob? m1 = Maybe.MakeMaybe(true); // locals can be done like this
         if m1 == nil;
-            STD.Print("Maybe: nil as expected");
+            Print("Maybe: nil as expected");
 
         int i = 0;
         int sum = 0;
@@ -34,8 +34,11 @@ class App {
             sum = sum + i;
             i = i + 1;
         }
-        Log.Line("sum0..9", String.FromInt(sum));
+        Log.Line("sum0..9", MathC.ToString(sum));
 
-        STD.Print("Demo done");
+        Print("Demo done");
     }
 }
+
+
+
