@@ -18,7 +18,7 @@ typedef Instance *(*RuntimeNewFunc)(RuntimeState *state, const char *namespace_,
 typedef void (*RuntimeStateInFunc)(RuntimeState *state);
 typedef ReferenceLocal (*RuntimeLocalFunc)(RuntimeState *state, Instance **instance);
 typedef void (*RuntimeAllocFunc)(RuntimeState *state, size_t size);
-typedef void (*RuntimeShowInstanceFunc)(Instance *instance);
+typedef void (*RuntimeShowInstanceFunc)(RuntimeState *state, Instance *instance);
 typedef void *(*RuntimeNullCoalesceFunc)(void *a, void *b);
 typedef void *(*RuntimeUnwrapFunc)(void *a, int line);
 
@@ -67,6 +67,7 @@ typedef struct RuntimeState
     ReferenceLocal *locals;
     Instance **instances;
     DllHandle **dlls;
+    Instance **gc_worklist;
     size_t allocated_bytes;
     size_t gc_threshold;
 } RuntimeState;

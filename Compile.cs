@@ -524,7 +524,6 @@ class Program
             "MathC",
 0,
             [
-                // BoolFrom*
                 new Method("BoolFromBool", [new ValueType("bool")], new ValueType("bool"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("BoolFromInt", [new ValueType("int")], new ValueType("bool"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("BoolFromUInt", [new ValueType("uint")], new ValueType("bool"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -538,7 +537,6 @@ class Program
                 new Method("BoolFromShort", [new ValueType("short")], new ValueType("bool"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("BoolFromUShort", [new ValueType("ushort")], new ValueType("bool"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // IntFrom*
                 new Method("IntFromBool", [new ValueType("bool")], new ValueType("int"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("IntFromInt", [new ValueType("int")], new ValueType("int"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("IntFromUInt", [new ValueType("uint")], new ValueType("int"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -552,7 +550,6 @@ class Program
                 new Method("IntFromShort", [new ValueType("short")], new ValueType("int"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("IntFromUShort", [new ValueType("ushort")], new ValueType("int"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // UIntFrom*
                 new Method("UIntFromBool", [new ValueType("bool")], new ValueType("uint"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("UIntFromInt", [new ValueType("int")], new ValueType("uint"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("UIntFromUInt", [new ValueType("uint")], new ValueType("uint"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -566,7 +563,6 @@ class Program
                 new Method("UIntFromShort", [new ValueType("short")], new ValueType("uint"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("UIntFromUShort", [new ValueType("ushort")], new ValueType("uint"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // LongFrom*
                 new Method("LongFromBool", [new ValueType("bool")], new ValueType("long"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("LongFromInt", [new ValueType("int")], new ValueType("long"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("LongFromUInt", [new ValueType("uint")], new ValueType("long"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -580,7 +576,6 @@ class Program
                 new Method("LongFromShort", [new ValueType("short")], new ValueType("long"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("LongFromUShort", [new ValueType("ushort")], new ValueType("long"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ULongFrom*
                 new Method("ULongFromBool", [new ValueType("bool")], new ValueType("ulong"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ULongFromInt", [new ValueType("int")], new ValueType("ulong"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ULongFromUInt", [new ValueType("uint")], new ValueType("ulong"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -594,7 +589,6 @@ class Program
                 new Method("ULongFromShort", [new ValueType("short")], new ValueType("ulong"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ULongFromUShort", [new ValueType("ushort")], new ValueType("ulong"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // FloatFrom*
                 new Method("FloatFromBool", [new ValueType("bool")], new ValueType("float"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("FloatFromInt", [new ValueType("int")], new ValueType("float"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("FloatFromUInt", [new ValueType("uint")], new ValueType("float"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -608,7 +602,6 @@ class Program
                 new Method("FloatFromShort", [new ValueType("short")], new ValueType("float"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("FloatFromUShort", [new ValueType("ushort")], new ValueType("float"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // DoubleFrom*
                 new Method("DoubleFromBool", [new ValueType("bool")], new ValueType("double"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("DoubleFromInt", [new ValueType("int")], new ValueType("double"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("DoubleFromUInt", [new ValueType("uint")], new ValueType("double"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -622,7 +615,6 @@ class Program
                 new Method("DoubleFromShort", [new ValueType("short")], new ValueType("double"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("DoubleFromUShort", [new ValueType("ushort")], new ValueType("double"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ByteFrom*
                 new Method("ByteFromBool", [new ValueType("bool")], new ValueType("byte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ByteFromInt", [new ValueType("int")], new ValueType("byte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ByteFromUInt", [new ValueType("uint")], new ValueType("byte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -636,7 +628,6 @@ class Program
                 new Method("ByteFromShort", [new ValueType("short")], new ValueType("byte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ByteFromUShort", [new ValueType("ushort")], new ValueType("byte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // SByteFrom*
                 new Method("SByteFromBool", [new ValueType("bool")], new ValueType("sbyte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("SByteFromInt", [new ValueType("int")], new ValueType("sbyte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("SByteFromUInt", [new ValueType("uint")], new ValueType("sbyte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -650,7 +641,6 @@ class Program
                 new Method("SByteFromShort", [new ValueType("short")], new ValueType("sbyte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("SByteFromUShort", [new ValueType("ushort")], new ValueType("sbyte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // CharFrom*
                 new Method("CharFromBool", [new ValueType("bool")], new ValueType("char"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("CharFromInt", [new ValueType("int")], new ValueType("char"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("CharFromUInt", [new ValueType("uint")], new ValueType("char"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -664,7 +654,6 @@ class Program
                 new Method("CharFromShort", [new ValueType("short")], new ValueType("char"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("CharFromUShort", [new ValueType("ushort")], new ValueType("char"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ShortFrom*
                 new Method("ShortFromBool", [new ValueType("bool")], new ValueType("short"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ShortFromInt", [new ValueType("int")], new ValueType("short"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ShortFromUInt", [new ValueType("uint")], new ValueType("short"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -678,7 +667,6 @@ class Program
                 new Method("ShortFromShort", [new ValueType("short")], new ValueType("short"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ShortFromUShort", [new ValueType("ushort")], new ValueType("short"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // UShortFrom*
                 new Method("UShortFromBool", [new ValueType("bool")], new ValueType("ushort"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("UShortFromInt", [new ValueType("int")], new ValueType("ushort"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("UShortFromUInt", [new ValueType("uint")], new ValueType("ushort"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -692,7 +680,6 @@ class Program
                 new Method("UShortFromShort", [new ValueType("short")], new ValueType("ushort"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("UShortFromUShort", [new ValueType("ushort")], new ValueType("ushort"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToBool
                 new Method("ToBool", [new ValueType("bool")], new ValueType("bool"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToBool", [new ValueType("int")], new ValueType("bool"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToBool", [new ValueType("uint")], new ValueType("bool"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -706,7 +693,6 @@ class Program
                 new Method("ToBool", [new ValueType("short")], new ValueType("bool"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToBool", [new ValueType("ushort")], new ValueType("bool"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToInt
                 new Method("ToInt", [new ValueType("bool")], new ValueType("int"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToInt", [new ValueType("int")], new ValueType("int"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToInt", [new ValueType("uint")], new ValueType("int"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -720,7 +706,6 @@ class Program
                 new Method("ToInt", [new ValueType("short")], new ValueType("int"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToInt", [new ValueType("ushort")], new ValueType("int"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToUInt
                 new Method("ToUInt", [new ValueType("bool")], new ValueType("uint"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToUInt", [new ValueType("int")], new ValueType("uint"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToUInt", [new ValueType("uint")], new ValueType("uint"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -734,7 +719,6 @@ class Program
                 new Method("ToUInt", [new ValueType("short")], new ValueType("uint"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToUInt", [new ValueType("ushort")], new ValueType("uint"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToLong
                 new Method("ToLong", [new ValueType("bool")], new ValueType("long"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToLong", [new ValueType("int")], new ValueType("long"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToLong", [new ValueType("uint")], new ValueType("long"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -748,7 +732,6 @@ class Program
                 new Method("ToLong", [new ValueType("short")], new ValueType("long"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToLong", [new ValueType("ushort")], new ValueType("long"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToULong
                 new Method("ToULong", [new ValueType("bool")], new ValueType("ulong"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToULong", [new ValueType("int")], new ValueType("ulong"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToULong", [new ValueType("uint")], new ValueType("ulong"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -761,8 +744,7 @@ class Program
                 new Method("ToULong", [new ValueType("char")], new ValueType("ulong"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToULong", [new ValueType("short")], new ValueType("ulong"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToULong", [new ValueType("ushort")], new ValueType("ulong"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
-
-                // ToFloat
+                
                 new Method("ToFloat", [new ValueType("bool")], new ValueType("float"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToFloat", [new ValueType("int")], new ValueType("float"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToFloat", [new ValueType("uint")], new ValueType("float"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -776,7 +758,6 @@ class Program
                 new Method("ToFloat", [new ValueType("short")], new ValueType("float"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToFloat", [new ValueType("ushort")], new ValueType("float"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToDouble
                 new Method("ToDouble", [new ValueType("bool")], new ValueType("double"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToDouble", [new ValueType("int")], new ValueType("double"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToDouble", [new ValueType("uint")], new ValueType("double"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -790,7 +771,6 @@ class Program
                 new Method("ToDouble", [new ValueType("short")], new ValueType("double"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToDouble", [new ValueType("ushort")], new ValueType("double"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToByte
                 new Method("ToByte", [new ValueType("bool")], new ValueType("byte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToByte", [new ValueType("int")], new ValueType("byte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToByte", [new ValueType("uint")], new ValueType("byte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -804,7 +784,6 @@ class Program
                 new Method("ToByte", [new ValueType("short")], new ValueType("byte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToByte", [new ValueType("ushort")], new ValueType("byte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToSByte
                 new Method("ToSByte", [new ValueType("bool")], new ValueType("sbyte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToSByte", [new ValueType("int")], new ValueType("sbyte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToSByte", [new ValueType("uint")], new ValueType("sbyte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -818,7 +797,6 @@ class Program
                 new Method("ToSByte", [new ValueType("short")], new ValueType("sbyte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToSByte", [new ValueType("ushort")], new ValueType("sbyte"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToChar
                 new Method("ToChar", [new ValueType("bool")], new ValueType("char"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToChar", [new ValueType("int")], new ValueType("char"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToChar", [new ValueType("uint")], new ValueType("char"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -832,7 +810,6 @@ class Program
                 new Method("ToChar", [new ValueType("short")], new ValueType("char"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToChar", [new ValueType("ushort")], new ValueType("char"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToShort
                 new Method("ToShort", [new ValueType("bool")], new ValueType("short"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToShort", [new ValueType("int")], new ValueType("short"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToShort", [new ValueType("uint")], new ValueType("short"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -846,7 +823,6 @@ class Program
                 new Method("ToShort", [new ValueType("short")], new ValueType("short"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToShort", [new ValueType("ushort")], new ValueType("short"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToUShort
                 new Method("ToUShort", [new ValueType("bool")], new ValueType("ushort"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToUShort", [new ValueType("int")], new ValueType("ushort"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToUShort", [new ValueType("uint")], new ValueType("ushort"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -860,7 +836,6 @@ class Program
                 new Method("ToUShort", [new ValueType("short")], new ValueType("ushort"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToUShort", [new ValueType("ushort")], new ValueType("ushort"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
 
-                // ToString
                 new Method("ToString", [new ValueType("bool")], new ClassType("STD", "String"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToString", [new ValueType("int")], new ClassType("STD", "String"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
                 new Method("ToString", [new ValueType("uint")], new ClassType("STD", "String"), new BlockStatement(new List<Statement>(), new Dictionary<int, Type>(), 0), 0),
@@ -1042,10 +1017,10 @@ class Program
         }
         var allClassesByName = new Dictionary<string, Class>(StringComparer.OrdinalIgnoreCase);
         foreach (var cls in compiledClasses)
-            allClassesByName[$"{cls.Namespace}::{cls.Name}"] = cls;
+            allClassesByName[$"{cls.Namespace} {cls.Name}"] = cls;
         foreach (var cls in importedClasses)
-            if (!allClassesByName.ContainsKey($"{cls.Namespace}::{cls.Name}"))
-                allClassesByName[$"{cls.Namespace}::{cls.Name}"] = cls;
+            if (!allClassesByName.ContainsKey($"{cls.Namespace} {cls.Name}"))
+                allClassesByName[$"{cls.Namespace} {cls.Name}"] = cls;
         var allClasses = allClassesByName.Values.ToList();
 
         var allHeaderPath = Path.Combine(objRoot, "all.h");
@@ -1101,7 +1076,7 @@ class Program
         allHeader.AppendLine("    Definition *def = find_definition(namespace_, name);");
         allHeader.AppendLine("    if (!def)");
         allHeader.AppendLine("    {");
-        allHeader.AppendLine("        printf(\"Missing definition %s::%s\\n\", namespace_, name);");
+        allHeader.AppendLine("        printf(\"Missing definition %s %s\\n\", namespace_, name);");
         allHeader.AppendLine("        abort();");
         allHeader.AppendLine("    }");
         allHeader.AppendLine("    *cache = def;");
@@ -1110,7 +1085,7 @@ class Program
         var importedNamespacesByClass = new Dictionary<string, List<string>>();
         foreach (var result in results)
             foreach (var cls in result.Classes)
-                importedNamespacesByClass[$"{cls.Namespace}::{cls.Name}"] = result.ImportedNamespaces;
+                importedNamespacesByClass[$"{cls.Namespace} {cls.Name}"] = result.ImportedNamespaces;
         timer.Start();
         string typesHeader = Transpiler.TranspileTypes(allClasses, importedNamespacesByClass);
         timer.Stop();

@@ -121,6 +121,7 @@ public static class Transpiler
     static Class Current = null!;
     static List<string> ImportedNamespaces = new();
     static List<ClassType> UsingTypes = new();
+    static int Blocks = 0;
     public static (string Header, string Source) TranspileModule(
         List<Class> transpileClasses,
         List<Class> allClasses,
@@ -142,7 +143,7 @@ public static class Transpiler
             Namespace = cls.Namespace;
             Name = cls.Name;
             FullName = $"{Namespace}_{Name}";
-            FullClassName = $"{Namespace}::{Name}";
+            FullClassName = $"{Namespace} {Name}";
             CurrentType = new ClassType(Namespace, Name);
 
             if (cls.InstanceFields.Count > 0)
@@ -222,7 +223,7 @@ public static class Transpiler
                             CL($"if (!p_{i})");
                             CL($"{{");
                             Class @class = GetClass(classType);
-                            CL($"   printf(\"{@class.Namespace}::{@class.Name} argument to {method.Name} is nil\\n\");");
+                            CL($"   printf(\"{@class.Namespace} {@class.Name} argument to {method.Name} is nil\\n\");");
                             CL($"   abort();");
                             CL($"}}");
                         }
@@ -234,7 +235,7 @@ public static class Transpiler
                     {
                         CL($"ReferenceLocal *l_init_preret = state->locals;");
                         CL($"l_retval = NULL;");
-                        CL($"printf(\"l_retval local {Name}\\n\"); runtime_reference_local(state, (Instance**)&l_retval, l_r_retval);");
+                        CL($"runtime_reference_local(state, (Instance**)&l_retval, l_r_retval);");
                     }
                     else if (method.ReturnType is ValueType)
                         CL($"l_retval = 0;");
@@ -243,7 +244,9 @@ public static class Transpiler
                     {
                         var arg = method.Arguments[argIndex];
                         if (arg is ClassType)
-                            CL($"printf(\"p_{argIndex} local {Name}\\n\"); runtime_reference_local(state, (Instance**)&p_{argIndex}, p_r_{argIndex});");
+                        {
+                            CL($"runtime_reference_local(state, (Instance**)&p_{argIndex}, p_r_{argIndex});");
+                        }
                         else
                             CL($"(void)p_{argIndex};");
                     }
@@ -322,12 +325,12 @@ public static class Transpiler
             Namespace = cls.Namespace;
             Name = cls.Name;
             CurrentType = new ClassType(Namespace, Name);
-            ImportedNamespaces = importedNamespacesByClass.TryGetValue($"{cls.Namespace}::{cls.Name}", out var imports)
+            ImportedNamespaces = importedNamespacesByClass.TryGetValue($"{cls.Namespace} {cls.Name}", out var imports)
                 ? imports
                 : allNamespaces;
 
             string fullName = $"{cls.Namespace}_{cls.Name}";
-            string fullClassName = $"{cls.Namespace}::{cls.Name}";
+            string fullClassName = $"{cls.Namespace} {cls.Name}";
             if (cls.InstanceFields.Count > 0)
             {
                 sb.AppendLine($"// {fullClassName}");
@@ -368,7 +371,7 @@ public static class Transpiler
         foreach (var cls in allClasses)
         {
             string fullName = $"{cls.Namespace}_{cls.Name}";
-            sb.AppendLine($"// {cls.Namespace}::{cls.Name}");
+            sb.AppendLine($"// {cls.Namespace} {cls.Name}");
             sb.AppendLine($"Definition *get_{fullName}(void)");
             sb.AppendLine("{");
             sb.AppendLine($"    return ensure_definition(&def_{fullName}, \"{cls.Namespace}\", \"{cls.Name}\");");
@@ -381,7 +384,7 @@ public static class Transpiler
             bool hasStaticRefs = cls.StaticFields.Any(f => f.Type is ClassType);
             if (hasInstanceRefs)
             {
-                sb.AppendLine($"// {cls.Namespace}::{cls.Name} instance refs");
+                sb.AppendLine($"// {cls.Namespace} {cls.Name} instance refs");
                 sb.AppendLine($"static void show_refs_{fullName}(Instance *instance)");
                 sb.AppendLine("{");
                 sb.AppendLine($"    {fullName} *obj = ({fullName}*)instance;");
@@ -389,14 +392,14 @@ public static class Transpiler
                 foreach (var f in cls.InstanceFields)
                 {
                     if (f.Type is ClassType)
-                        sb.AppendLine($"    if (obj->f_{i}) runtime_show_instance((Instance*)obj->f_{i});");
+                        sb.AppendLine($"    if (obj->f_{i}) runtime_show_instance(state, (Instance*)obj->f_{i});");
                     i++;
                 }
                 sb.AppendLine("}");
             }
             if (hasStaticRefs)
             {
-                sb.AppendLine($"// {cls.Namespace}::{cls.Name} static refs");
+                sb.AppendLine($"// {cls.Namespace} {cls.Name} static refs");
                 sb.AppendLine($"static void show_static_refs_{fullName}(void)");
                 sb.AppendLine("{");
                 sb.AppendLine($"    static_{fullName} *s = &static_{fullName}_data;");
@@ -404,7 +407,7 @@ public static class Transpiler
                 foreach (var f in cls.StaticFields)
                 {
                     if (f.Type is ClassType)
-                        sb.AppendLine($"    if (s->f_{i}) runtime_show_instance((Instance*)s->f_{i});");
+                        sb.AppendLine($"    if (s->f_{i}) runtime_show_instance(state, (Instance*)s->f_{i});");
                     i++;
                 }
                 sb.AppendLine("}");
@@ -414,7 +417,7 @@ public static class Transpiler
         foreach (var cls in compiledClasses)
         {
             string fullName = $"{cls.Namespace}_{cls.Name}";
-            sb.AppendLine($"    // {cls.Namespace}::{cls.Name}");
+            sb.AppendLine($"    // {cls.Namespace} {cls.Name}");
             sb.AppendLine("    {");
             sb.AppendLine($"        .namespace_ = \"{cls.Namespace}\",");
             sb.AppendLine($"        .name = \"{cls.Name}\",");
@@ -552,6 +555,8 @@ public static class Transpiler
     {
         switch (statement)
         {
+            case EmptyStatement emptyStatement:
+                break;
             case CallStatement call:
                 {
                     C("(void)");
@@ -682,14 +687,14 @@ public static class Transpiler
                     if (blockStatement.Locals.Count > 0)
                     {
                         CL("runtime_gc(state);");
-                        CL("ReferenceLocal *l_prev = state->locals;");
+                        CL($"ReferenceLocal *l_prev_{Blocks++} = state->locals;");
                         foreach (var local in blockStatement.Locals)
                         {
                             CL($"{TranslateType(local.Value)} l_{local.Key};");
                             if (local.Value is ClassType)
                             {
                                 CL($"l_{local.Key} = NULL;");
-                                CL($"printf(\"l_{local.Key} local {Name}\\n\"); runtime_reference_local(state, (Instance**)&l_{local.Key}, l_r_{local.Key});");
+                                CL($"runtime_reference_local(state, (Instance**)&l_{local.Key}, l_r_{local.Key});");
                             }
                             else if (local.Value is ValueType)
                                 CL($"l_{local.Key} = 0;");
@@ -703,7 +708,7 @@ public static class Transpiler
                     locals.Pop();
                     if (blockStatement.Locals.Count > 0)
                     {
-                        CL("state->locals = l_prev;");
+                        CL($"state->locals = l_prev_{--Blocks};");
                         CL("runtime_gc(state);");
                     }
                     indent--;
@@ -722,9 +727,9 @@ public static class Transpiler
             return classType.CachedClass;
         List<Class> candidates = classes.Where(c => c.Name == classType.Name).Where(c => classType.Namespace != null ? c.Namespace.StartsWith(classType.Namespace) : true).Where(c => ImportedNamespaces.Contains(c.Namespace) || c.Namespace == Namespace).ToList();
         if (candidates.Count > 1)
-            throw new Exception($"Multiple class candidates found for {classType.Namespace}::{classType.Name} on line {classType.Line}");
+            throw new Exception($"Multiple class candidates found for {classType.Namespace} {classType.Name} on line {classType.Line}");
         else if (candidates.Count == 0)
-            throw new Exception($"No class found for {classType.Namespace}::{classType.Name} on line {classType.Line}");
+            throw new Exception($"No class found for {classType.Namespace} {classType.Name} on line {classType.Line}");
         classType.CachedClass = candidates[0];
         classType.Namespace = candidates[0].Namespace;
         return candidates[0];
@@ -985,7 +990,7 @@ public static class Transpiler
                 }
             case ClassExpression classExpression:
                 {
-                    throw new Exception($"Weird class usage of {classExpression.Class.Namespace}::{classExpression.Class.Name} on line {classExpression.Line}");
+                    throw new Exception($"Weird class usage of {classExpression.Class.Namespace} {classExpression.Class.Name} on line {classExpression.Line}");
                 }
             case StaticFieldExpression staticFieldExpression:
                 {
@@ -1040,34 +1045,54 @@ public static class Transpiler
                         C("(");
                     Type left = GetType(binaryExpression.Left);
                     Type right = GetType(binaryExpression.Right);
-                    if (binaryExpression.Op == "??")
+                    switch (binaryExpression.Op)
                     {
-                        if (left is not ClassType leftClassType || right is not ClassType rightClassType)
-                            throw new Exception($"Cannot use ?? on a non-class type on line {binaryExpression.Line}");
-                        Class @leftClass = GetClass(leftClassType);
-                        Class @rightClass = GetClass(rightClassType);
-                        if (@leftClass.Namespace != @rightClass.Namespace || @leftClass.Name != @rightClass.Name)
-                            throw new Exception($"Types mismatch on line {binaryExpression.Line}");
-                        C($"({TranslateType(left)})runtime_null_coalesce((void*)");
-                        TranslateExpression(binaryExpression.Left);
-                        C($", (void*)");
-                        TranslateExpression(binaryExpression.Right);
-                        C($")");
-                    }
-                    else
-                    {
-                        if (binaryExpression.Op != "==" && binaryExpression.Op != "!=")
-                        {
-                            if (left is not ValueType || right is not ValueType)
-                                throw new Exception($"Cannot use {binaryExpression.Op} on a non-value type on line {binaryExpression.Line}");
-                            if (!TypeMatches(left, right))
-                                throw new Exception($"Type mismatch on line {binaryExpression.Line}");
-                        }
-                        TranslateExpression(binaryExpression.Left);
-                        C(" ");
-                        C(binaryExpression.Op);
-                        C(" ");
-                        TranslateExpression(binaryExpression.Right);
+                        case "??":
+                            {
+                                if (left is not ClassType leftClassType || right is not ClassType rightClassType)
+                                    throw new Exception($"Cannot use ?? on a non-class type on line {binaryExpression.Line}");
+                                Class @leftClass = GetClass(leftClassType);
+                                Class @rightClass = GetClass(rightClassType);
+                                if (@leftClass.Namespace != @rightClass.Namespace || @leftClass.Name != @rightClass.Name)
+                                    throw new Exception($"Types mismatch on line {binaryExpression.Line}");
+                                C($"({TranslateType(left)})runtime_null_coalesce((void*)");
+                                TranslateExpression(binaryExpression.Left);
+                                C($", (void*)");
+                                TranslateExpression(binaryExpression.Right);
+                                C($")");
+                                break;
+                            }
+                        case "&&":
+                            {
+                                TranslateExpression(binaryExpression.Left);
+                                C(" ? ");
+                                TranslateExpression(binaryExpression.Right);
+                                C(" : 0");
+                                break;
+                            }
+                        case "||":
+                            {
+                                TranslateExpression(binaryExpression.Left);
+                                C(" ? 1 : ");
+                                TranslateExpression(binaryExpression.Right);
+                                break;
+                            }
+                        default:
+                            {
+                                if (binaryExpression.Op != "==" && binaryExpression.Op != "!=")
+                                {
+                                    if (left is not ValueType || right is not ValueType)
+                                        throw new Exception($"Cannot use {binaryExpression.Op} on a non-value type on line {binaryExpression.Line}");
+                                    if (!TypeMatches(left, right))
+                                        throw new Exception($"Type mismatch on line {binaryExpression.Line}");
+                                }
+                                TranslateExpression(binaryExpression.Left);
+                                C(" ");
+                                C(binaryExpression.Op);
+                                C(" ");
+                                TranslateExpression(binaryExpression.Right);
+                                break;
+                            }
                     }
                     if (paren)
                         C(")");

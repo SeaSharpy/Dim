@@ -23,17 +23,14 @@ class Log {
         Print(line);
     }
 
-    static void Line(String label, String value) {
+    static void Line(String label, String value)
         Print(label.Concat(": ").Concat(value));
-    }
 
-    static void Header(String label) {
+    static void Header(String label)
         Print(label.Concat(":"));
-    }
 
-    static void Item(String label, String value) {
+    static void Item(String label, String value)
         Print("  ".Concat(label).Concat(" = ").Concat(value));
-    }
 }
 
 // Vector math with mixed typing, static fields, instance fields, and methods.
@@ -56,9 +53,7 @@ class Vector2 {
         self.y = py;
     }
 
-    float LenSq! {
-        return (self.x * self.x) + (self.y * self.y);
-    }
+    float LenSq! => (self.x * self.x) + (self.y * self.y);
 
     float Len! {
         return MathF.Sqrt(self.LenSq!);
@@ -70,9 +65,7 @@ class Vector2 {
         return v;
     }
 
-    static float Dot(Vector2 a, Vector2 b) {
-        return (a.x * b.x) + (a.y * b.y);
-    }
+    static float Dot(Vector2 a, Vector2 b) => (a.x * b.x) + (a.y * b.y);
 
     static void InitStatics! {
         Zero = New(0, 0);
@@ -84,9 +77,8 @@ class Vector2 {
 class Counter {
     static int Created;
 
-    static void Bump! {
+    static void Bump!
         Counter.Created = Counter.Created + 1;
-    }
 
     static int Next! {
         Counter.Created = Counter.Created + 1;
@@ -117,14 +109,12 @@ class Blob {
         Counter.Bump!;
     }
 
-    String ToString! {
-        return "Blob(".Concat(MathC.ToString(self.id))
-            .Concat(", v=")
-            .Concat(MathC.ToString(self.value))
-            .Concat(", tag=")
-            .Concat(self.tag)
-            .Concat(")");
-    }
+    String ToString! => "Blob(".Concat(MathC.ToString(self.id))
+        .Concat(", v=")
+        .Concat(MathC.ToString(self.value))
+        .Concat(", tag=")
+        .Concat(self.tag)
+        .Concat(")");
 }
 
 class Maybe {
@@ -881,15 +871,13 @@ class MemoryTests {
         double t0 = Log.Begin("Memory test (1 GB strings)");
         int entryCount = 1000000;
         int chunkLength = 1024;
-        double holdMs = 20000.0;
 
-        String baseChunk = MemoryTests.MakeChunk(chunkLength);
         List entries = List.New!;
         double allocStart = TimeMS!;
         int i = 0;
         while i < entryCount;
         {
-            String entry = String.Clone(baseChunk);
+            String entry = MemoryTests.MakeChunk!;
             entries.Add(entry.Box!);
             i = i + 1;
         }
@@ -899,7 +887,7 @@ class MemoryTests {
         Log.Line("alloc ms", MathC.ToString(allocEnd - allocStart));
 
         double holdStart = TimeMS!;
-        double holdUntil = holdStart + holdMs;
+        double holdUntil = holdStart + 5000;
         ulong spin = 0;
         while TimeMS! < holdUntil;
         {
@@ -913,12 +901,18 @@ class MemoryTests {
         double releaseEnd = TimeMS!;
         Log.Line("release ms", MathC.ToString(releaseEnd - releaseStart));
         Log.Line("after clear", MathC.ToString(entries.Count!));
+        holdStart = TimeMS!;
+        holdUntil = holdStart + 2000;
+        spin = 0;
+        while TimeMS! < holdUntil;
+        {
+            spin = spin + 1;
+        }
+        Log.Line("busy loops", MathC.ToString(spin));
         Log.End("Memory test (1 GB strings)", t0);
     }
 
-    static String MakeChunk(int length) {
-        return "                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ";
-    }
+    static String MakeChunk! => "                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ";
 }
 
 

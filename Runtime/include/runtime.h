@@ -27,6 +27,10 @@
 #define debugprintf(...) ((void)0)
 #endif
 
+#define runtime_reference_local(state, instance, name)                  \
+    ReferenceLocal name = runtime_new_reference_local(state, instance); \
+    state->locals = &name;
+
 #ifdef FUNCTION_SIG
 EXPORT RuntimeState *runtime_init();
 EXPORT bool runtime_load_package(const char *name, RuntimeState *state);
@@ -37,7 +41,7 @@ EXPORT void runtime_gc(RuntimeState *state);
 EXPORT void runtime_gc_force(RuntimeState *state);
 EXPORT void runtime_add_alloc(RuntimeState *state, size_t size);
 EXPORT void runtime_sub_alloc(RuntimeState *state, size_t size);
-EXPORT void runtime_show_instance(Instance *instance);
+EXPORT void runtime_show_instance(RuntimeState *state, Instance *instance);
 EXPORT void* runtime_null_coalesce(void* a, void* b);
 EXPORT void* runtime_unwrap(void* a, int line);
 #else
@@ -71,7 +75,3 @@ extern RuntimeUnwrapFunc runtime_unwrap;
 #endif
 #endif
 #endif
-
-#define runtime_reference_local(state, instance, name)                  \
-    ReferenceLocal name = runtime_new_reference_local(state, instance); \
-    state->locals = &name;

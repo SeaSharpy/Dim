@@ -284,7 +284,7 @@ static void show_refs_STD_Any(Instance *instance)
     if (!any)
         return;
     if (any->f_0)
-        runtime_show_instance(any->f_0);
+        runtime_show_instance(state, any->f_0);
 }
 
 static STD_Any *STD_String_Box(STD_String *p_0)
@@ -317,7 +317,7 @@ static void show_refs_STD_List(Instance *instance)
     {
         STD_Any *any = list->data[i];
         if (any)
-            runtime_show_instance((Instance *)any);
+            runtime_show_instance(state, (Instance *)any);
     }
 }
 

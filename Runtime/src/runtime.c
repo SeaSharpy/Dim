@@ -40,8 +40,9 @@ EXPORT RuntimeState *runtime_init()
     state->locals = NULL;
     state->instances = NULL;
     state->dlls = NULL;
+    state->gc_worklist = NULL;
     state->allocated_bytes = 0;
-    state->gc_threshold = 1024 * 1024;
+    state->gc_threshold = 0;
     return state;
 }
 #include <stdio.h>
@@ -240,24 +241,24 @@ EXPORT bool runtime_load_package(const char *name, RuntimeState *state)
     return true;
 }
 
-static Instance **gc_worklist = NULL;
-static bool gc_epoch = false;
-
-EXPORT void runtime_show_instance(Instance *instance)
+EXPORT void runtime_show_instance(RuntimeState* state, Instance *instance)
 {
     if (!instance)
         return;
-    if (instance->seen == gc_epoch)
+    if (instance->seen)
         return;
-    arrput(gc_worklist, instance);
+    arrput(state->gc_worklist, instance);
 }
 
 static double gc_time = 0;
 
 static void runtime_gc_collect(RuntimeState *state)
 {
-    gc_epoch = !gc_epoch;
     double start = time_ms();
+    arrfree(state->gc_worklist);
+    state->gc_worklist = NULL;
+    for (int i = 0; i < arrlen(state->instances); i++)
+        state->instances[i]->seen = false;
     ReferenceLocal *local = state->locals;
     while (local)
     {
@@ -265,7 +266,7 @@ static void runtime_gc_collect(RuntimeState *state)
         local = local->prev;
         if (!inst)
             continue;
-        arrput(gc_worklist, inst);
+        arrput(state->gc_worklist, inst);
     }
     for (int i = 0; i < arrlen(state->definitions); i++)
     {
@@ -273,23 +274,21 @@ static void runtime_gc_collect(RuntimeState *state)
         if (def->show_static_refs)
             def->show_static_refs();
     }
-    while (arrlen(gc_worklist) > 0)
+    while (arrlen(state->gc_worklist) > 0)
     {
-        Instance *inst = arrpop(gc_worklist);
+        Instance *inst = arrpop(state->gc_worklist);
         if (!inst)
             continue;
-        inst->seen = gc_epoch;
+        inst->seen = true;
         Definition *def = inst->definition;
         if (def->show_refs)
             def->show_refs(inst);
     }
-    arrfree(gc_worklist);
-    gc_worklist = NULL;
     unsigned long long cleaned = 0;
     for (int i = 0; i < arrlen(state->instances);)
     {
         Instance *inst = state->instances[i];
-        if (inst && inst->seen == gc_epoch)
+        if (inst && inst->seen)
         {
             i++;
             continue;
@@ -379,9 +378,9 @@ int main(int argc, char **argv)
                 Method *m = &def->methods[j];
                 if (strcmp(m->name, "Main") == 0)
                 {
-                    printf("Calling App::Main\n");
+                    printf("Calling App.Main\n");
                     ((void (*)(void))m->entry)();
-                    printf("App::Main returned\n");
+                    printf("App.Main returned\n");
                     goto exit;
                 }
             }
