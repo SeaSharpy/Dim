@@ -168,8 +168,6 @@ static STD_String *STD_String_FromFormat(const char *fmt, ...)
     return instance;
 }
 
-/* String conversions from runtime-visible primitive types */
-
 static STD_String *STD_String_FromBool(bool p_0)
 {
     return STD_String_New(p_0 ? "true" : "false");
@@ -232,8 +230,6 @@ static STD_String *STD_String_FromUShort(uint16_t p_0)
 {
     return STD_String_FromFormat("%" PRIu16, p_0);
 }
-
-/* Extra string helpers */
 
 static int32_t STD_String_Length(STD_String *p_0)
 {
@@ -394,8 +390,6 @@ static void STD_List_Clear(STD_List *p_0)
     p_0->data = NULL;
 }
 
-/* STD::STD */
-
 void STD_STD_Print(STD_String *p_0)
 {
     if (!p_0 || !p_0->data)
@@ -407,8 +401,6 @@ double STD_STD_TimeMS(void)
 {
     return time_ms();
 }
-
-/* STD::Math (double) */
 
 static double STD_Math_Sqrt(double p_0) { return sqrt(p_0); }
 static double STD_Math_Pow(double p_0, double p_1) { return pow(p_0, p_1); }
@@ -434,8 +426,6 @@ static double STD_Math_Abs(double p_0) { return fabs(p_0); }
 static double STD_Math_Min(double p_0, double p_1) { return (p_0 < p_1) ? p_0 : p_1; }
 static double STD_Math_Max(double p_0, double p_1) { return (p_0 > p_1) ? p_0 : p_1; }
 
-/* STD::MathF (float) */
-
 static float STD_MathF_Sqrt(float p_0) { return sqrtf(p_0); }
 static float STD_MathF_Pow(float p_0, float p_1) { return powf(p_0, p_1); }
 static float STD_MathF_Sin(float p_0) { return sinf(p_0); }
@@ -459,8 +449,6 @@ static float STD_MathF_Fmod(float p_0, float p_1) { return fmodf(p_0, p_1); }
 static float STD_MathF_Abs(float p_0) { return fabsf(p_0); }
 static float STD_MathF_Min(float p_0, float p_1) { return (p_0 < p_1) ? p_0 : p_1; }
 static float STD_MathF_Max(float p_0, float p_1) { return (p_0 > p_1) ? p_0 : p_1; }
-
-/* STD::MathI (integer helpers per type, no overloads) */
 
 static int32_t STD_MathI_MinInt(int32_t a, int32_t b) { return (a < b) ? a : b; }
 static int32_t STD_MathI_MaxInt(int32_t a, int32_t b) { return (a > b) ? a : b; }
@@ -601,9 +589,6 @@ static uint8_t STD_MathI_ClampByte(uint8_t v, uint8_t lo, uint8_t hi)
         return hi;
     return v;
 }
-
-/* STD::MathC (conversions between types) */
-/* Naming scheme: <ToType>From<FromType> */
 
 static bool STD_MathC_BoolFromBool(bool v) { return v; }
 static bool STD_MathC_BoolFromInt(int32_t v) { return v != 0; }
@@ -760,8 +745,6 @@ static uint16_t STD_MathC_UShortFromSByte(int8_t v) { return (uint16_t)v; }
 static uint16_t STD_MathC_UShortFromChar(char v) { return (uint16_t)(unsigned char)v; }
 static uint16_t STD_MathC_UShortFromShort(int16_t v) { return (uint16_t)v; }
 static uint16_t STD_MathC_UShortFromUShort(uint16_t v) { return v; }
-
-/* Methods tables */
 
 static Method STD_String_methods[] = {
     {"New", (void *)STD_String_New},
@@ -1055,7 +1038,6 @@ static Method STD_MathC_methods[] = {
     {"UShortFromShort", (void *)STD_MathC_UShortFromShort},
     {"UShortFromUShort", (void *)STD_MathC_UShortFromUShort},
 
-    /* Overloaded To* conversions */
     {"ToBool", (void *)STD_MathC_BoolFromBool},
     {"ToBool", (void *)STD_MathC_BoolFromInt},
     {"ToBool", (void *)STD_MathC_BoolFromUInt},

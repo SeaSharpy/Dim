@@ -102,12 +102,12 @@ public static class Transpiler
         => $"{returnType} {name}(void)";
     static string BuildRealSignature(string returnType, string name, params string[] args)
         => $"{returnType} {name}({string.Join(", ", args)})";
-    static string BuildFunctionPointerCast(Method method)
+    static string BuildFunctionPointerType(Method method)
     {
         string returnType = method.ReturnType != null ? TranslateType(method.ReturnType) : "void";
         List<string> argTypes = method.Arguments.Select(TranslateType).ToList();
         string args = argTypes.Count == 0 ? "void" : string.Join(", ", argTypes);
-        return $"({returnType} (*)({args}))";
+        return $"{returnType} (*)({args})";
     }
 
     static DictionaryStack<int, Type> locals = new();
@@ -139,6 +139,8 @@ public static class Transpiler
         CL($"#include \"{AllHeaderFileName}\"");
         foreach (var cls in transpileClasses)
         {
+            BothL();
+            CL();
             Current = cls;
             Namespace = cls.Namespace;
             Name = cls.Name;
@@ -148,12 +150,10 @@ public static class Transpiler
 
             if (cls.InstanceFields.Count > 0)
             {
-                BothL();
-                BothL($"// {FullClassName}");
                 Both(BuildSignatureNoArgs($"{FullName}*", $"new_{FullName}"));
+                CL();
                 HL(";");
                 CL("{");
-                CL();
                 CL($"    {FullName}* instance = ({FullName}*)malloc(sizeof({FullName}));");
                 int i = 0;
                 foreach (var f in cls.InstanceFields)
@@ -164,43 +164,33 @@ public static class Transpiler
                         CL($"    instance->f_{i++} = NULL;");
                 }
                 CL("    return instance;");
-                CL();
                 CL("}");
-                BothL();
-
-                BothL($"// {FullClassName}");
+                CL();
                 Both(BuildRealSignature($"void", $"free_{FullName}", $"{FullName}* instance"));
                 HL(";");
+                CL();
                 CL("{");
-                CL();
                 CL("    free(instance);");
-                CL();
                 CL("}");
             }
 
             if (cls.StaticFields.Count > 0)
             {
-                BothL();
-                BothL($"// {FullClassName}");
+                CL();
                 HL($"extern static_{FullName} static_{FullName}_data;");
-
                 CL($"static_{FullName} static_{FullName}_data;");
             }
 
             int methodCount = cls.Methods.Count;
             if (methodCount > 0)
             {
-                HL();
                 ML2();
-                ML2($"// {FullClassName}");
                 HL($"extern Method {FullName}_methods[];");
                 ML2($"Method {FullName}_methods[] = {{");
                 foreach (var method in cls.Methods)
                 {
                     ReturnType = method.ReturnType;
-                    BothL();
-                    CL($"// {FullClassName}.{method.Name}");
-                    ML2($"    // {FullClassName}.{method.Name}");
+                    CL();
                     string Return = method.ReturnType != null ? TranslateType(method.ReturnType) : "void";
                     string Name = $"{FullName}_{method.Name}";
                     ML2($"    {{ \"{method.Name}\", (void*){Name} }},");
@@ -209,9 +199,7 @@ public static class Transpiler
                     int i = 0;
                     foreach (var arg in method.Arguments)
                         arguments.Add(i++, arg);
-                    Both(Signature);
-                    HL(";");
-                    CL();
+                    CL(Signature);
                     indent++;
                     CL("{");
                     CL();
@@ -230,25 +218,15 @@ public static class Transpiler
                         i++;
                     }
                     if (method.ReturnType != null)
-                        CL($"{Return} l_retval;");
-                    if (method.ReturnType is ClassType)
-                    {
-                        CL($"ReferenceLocal *l_init_preret = state->locals;");
-                        CL($"l_retval = NULL;");
-                        CL($"runtime_reference_local(state, (Instance**)&l_retval, l_r_retval);");
-                    }
-                    else if (method.ReturnType is ValueType)
-                        CL($"l_retval = 0;");
-                    CL("ReferenceLocal *l_init = state->locals;");
+                        CL($"{(method.ReturnType is ClassType ? "class" : "value")}_ret({Return});");
+                    CL("method_start;");
                     for (int argIndex = 0; argIndex < method.Arguments.Count; argIndex++)
                     {
                         var arg = method.Arguments[argIndex];
                         if (arg is ClassType)
-                        {
-                            CL($"runtime_reference_local(state, (Instance**)&p_{argIndex}, p_r_{argIndex});");
-                        }
+                            CL($"class_arg({argIndex});");
                         else
-                            CL($"(void)p_{argIndex};");
+                            CL($"use(p_{argIndex});");
                     }
                     bool isBox = method.Name == "Box";
                     bool isUnbox = method.Name == "Unbox";
@@ -256,14 +234,13 @@ public static class Transpiler
                     {
                         CL($"l_retval = (STD_Any*)runtime_new(state, \"STD\", \"Any\");");
                         CL($"((STD_Any*)l_retval)->f_0 = (Instance*)p_0;");
-                        CL("goto _ret;");
+                        CL("do_ret_void;");
                     }
                     else if (isUnbox)
                     {
                         CL("if (!p_0)");
                         CL("{");
-                        CL("    l_retval = NULL;");
-                        CL("    goto _ret;");
+                        CL("    do_ret_value(NULL);");
                         CL("}");
                         CL("STD_Any *l_any = (STD_Any*)p_0;");
                         CL("if (!l_any->f_0)");
@@ -272,23 +249,20 @@ public static class Transpiler
                         CL($"    l_retval = ({FullName}*)l_any->f_0;");
                         CL("else");
                         CL("    l_retval = NULL;");
-                        CL("goto _ret;");
+                        CL("do_ret_void;");
                     }
                     else
                     {
                         TranslateStatement(method.Body);
                     }
-                    CL("goto _ret;");
-                    CL("_ret:");
-                    CL("state->locals = l_init;");
-                    CL("runtime_gc(state);");
+                    CL($"method_end;");
                     if (method.ReturnType is ClassType)
-                        CL($"state->locals = l_init_preret;");
+                        CL("method_end_class_ret;");
                     indent--;
                     if (method.ReturnType != null)
-                        CL("return l_retval;");
+                        CL("ret_value;");
                     else
-                        CL("return;");
+                        CL("ret_void;");
                     CL();
                     CL("}");
                 }
@@ -318,7 +292,6 @@ public static class Transpiler
             sb.AppendLine($"typedef struct {fullName} {fullName};");
             sb.AppendLine($"typedef struct static_{fullName} static_{fullName};");
         }
-        sb.AppendLine();
 
         foreach (var cls in allClasses)
         {
@@ -330,26 +303,31 @@ public static class Transpiler
                 : allNamespaces;
 
             string fullName = $"{cls.Namespace}_{cls.Name}";
-            string fullClassName = $"{cls.Namespace} {cls.Name}";
+            if (cls.InstanceFields.Count > 0 || cls.StaticFields.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine();
+                sb.AppendLine($"// {cls.Namespace} { cls.Name}");
+            }
             if (cls.InstanceFields.Count > 0)
             {
-                sb.AppendLine($"// {fullClassName}");
+                sb.AppendLine($"");
                 sb.AppendLine($"typedef struct {fullName} {{");
                 sb.AppendLine("    Definition *definition;");
                 sb.AppendLine("    bool seen;");
                 int i = 0;
                 foreach (var f in cls.InstanceFields)
-                    sb.AppendLine($"    {TranslateType(f.Type)} f_{i++}; // {fullClassName}.{f.Name}");
+                    sb.AppendLine($"    {TranslateType(f.Type)} f_{i++}; // {f.Name}");
                 sb.AppendLine($"}} {fullName};");
             }
 
             if (cls.StaticFields.Count > 0)
             {
-                sb.AppendLine($"// {fullClassName}");
+                sb.AppendLine($"");
                 int i = 0;
                 sb.AppendLine($"typedef struct static_{fullName} {{");
                 foreach (var f in cls.StaticFields)
-                    sb.AppendLine($"    {TranslateType(f.Type)} f_{i++}; // {fullClassName}.{f.Name}");
+                    sb.AppendLine($"    {TranslateType(f.Type)} f_{i++}; // {f.Name}");
                 sb.AppendLine($"}} static_{fullName};");
             }
         }
@@ -363,15 +341,12 @@ public static class Transpiler
         sb.AppendLine("#define FUNCTION_VAR");
         sb.AppendLine($"#include \"{AllHeaderFileName}\"");
         sb.AppendLine("RuntimeState *state = NULL;");
+        sb.AppendLine();
         foreach (var cls in allClasses)
         {
             string fullName = $"{cls.Namespace}_{cls.Name}";
+            sb.AppendLine();
             sb.AppendLine($"Definition *def_{fullName} = NULL;");
-        }
-        foreach (var cls in allClasses)
-        {
-            string fullName = $"{cls.Namespace}_{cls.Name}";
-            sb.AppendLine($"// {cls.Namespace} {cls.Name}");
             sb.AppendLine($"Definition *get_{fullName}(void)");
             sb.AppendLine("{");
             sb.AppendLine($"    return ensure_definition(&def_{fullName}, \"{cls.Namespace}\", \"{cls.Name}\");");
@@ -382,9 +357,15 @@ public static class Transpiler
             string fullName = $"{cls.Namespace}_{cls.Name}";
             bool hasInstanceRefs = cls.InstanceFields.Any(f => f.Type is ClassType);
             bool hasStaticRefs = cls.StaticFields.Any(f => f.Type is ClassType);
+            if (hasInstanceRefs || hasStaticRefs)
+            {
+                sb.AppendLine();
+                sb.AppendLine();
+                sb.AppendLine($"// {cls.Namespace} {cls.Name}");
+            }
             if (hasInstanceRefs)
             {
-                sb.AppendLine($"// {cls.Namespace} {cls.Name} instance refs");
+                sb.AppendLine($"");
                 sb.AppendLine($"static void show_refs_{fullName}(Instance *instance)");
                 sb.AppendLine("{");
                 sb.AppendLine($"    {fullName} *obj = ({fullName}*)instance;");
@@ -399,7 +380,7 @@ public static class Transpiler
             }
             if (hasStaticRefs)
             {
-                sb.AppendLine($"// {cls.Namespace} {cls.Name} static refs");
+                sb.AppendLine($"");
                 sb.AppendLine($"static void show_static_refs_{fullName}(void)");
                 sb.AppendLine("{");
                 sb.AppendLine($"    static_{fullName} *s = &static_{fullName}_data;");
@@ -413,11 +394,12 @@ public static class Transpiler
                 sb.AppendLine("}");
             }
         }
+        sb.AppendLine($"");
+        sb.AppendLine($"");
         sb.AppendLine("static Definition definitions[] = {");
         foreach (var cls in compiledClasses)
         {
             string fullName = $"{cls.Namespace}_{cls.Name}";
-            sb.AppendLine($"    // {cls.Namespace} {cls.Name}");
             sb.AppendLine("    {");
             sb.AppendLine($"        .namespace_ = \"{cls.Namespace}\",");
             sb.AppendLine($"        .name = \"{cls.Name}\",");
@@ -462,6 +444,8 @@ public static class Transpiler
             sb.AppendLine("    },");
         }
         sb.AppendLine("};");
+        sb.AppendLine($"");
+        sb.AppendLine($"");
         sb.AppendLine("EXPORT void getDefinitions(APITable *table) {");
         sb.AppendLine($"    table->count = {compiledClasses.Count};");
         sb.AppendLine("    table->defs = definitions;");
@@ -559,14 +543,14 @@ public static class Transpiler
                 break;
             case CallStatement call:
                 {
-                    C("(void)");
-                    TranslateExpression(call.Expression);
-                    CL(";");
+                    C("use(");
+                    TranslateExpression(call.Expression, false);
+                    CL(");");
                     break;
                 }
             case GcStatement gcStatement:
                 {
-                    CL("runtime_gc_force(state);");
+                    CL("gc_force;");
                     break;
                 }
             case ReturnStatement returnStatement:
@@ -578,13 +562,14 @@ public static class Transpiler
                         Type returnType = GetType(returnStatement.Expression);
                         if (!TypeMatches(ReturnType, returnType))
                             throw new Exception($"Return type mismatch on line {returnStatement.Line}");
-                        C("l_retval = ");
-                        TranslateExpression(returnStatement.Expression);
-                        CL(";");
+                        C("do_ret_value(");
+                        TranslateExpression(returnStatement.Expression, false);
+                        CL(");");
+                        break;
                     }
                     else if (ReturnType != null)
                         throw new Exception($"Return type mismatch on line {returnStatement.Line}");
-                    CL("goto _ret;");
+                    CL("do_ret_void;");
                     break;
                 }
             case AssignmentStatement assignmentStatement:
@@ -616,9 +601,9 @@ public static class Transpiler
                     int fieldId = @class.StaticFields.FindIndex(f => f == field);
                     if (fieldId == -1)
                         throw new Exception($"Static field not found on line {assignmentStatement.Line}");
-                    C($"((static_{@class.Namespace}_{@class.Name}*)get_{@class.Namespace}_{@class.Name}()->static_data)->f_{fieldId}");
+                    C($"static_data({@class.Namespace}_{@class.Name})->f_{fieldId}");
                     C($" = ");
-                    TranslateExpression(assignmentStatement.Expression);
+                    TranslateExpression(assignmentStatement.Expression, false);
                     CL(";");
                     break;
                 }
@@ -629,9 +614,9 @@ public static class Transpiler
                         throw new Exception($"Local not found on line {localAssignmentStatement.Line}");
                     if (!TypeMatches(local!, type))
                         throw new Exception($"Local type assignment mismatch on line {localAssignmentStatement.Line}");
-                    C($"l_{localAssignmentStatement.ID} = ");
-                    TranslateExpression(localAssignmentStatement.Expression);
-                    CL(";");
+                    C($"set_local({localAssignmentStatement.ID}, ");
+                    TranslateExpression(localAssignmentStatement.Expression, false);
+                    CL(");");
                     break;
                 }
             case StaticFieldAssignmentStatement staticFieldAssignmentStatement:
@@ -642,7 +627,7 @@ public static class Transpiler
                         throw new Exception($"Static field type assignment mismatch on line {staticFieldAssignmentStatement.Line}");
                     TranslateExpression(staticFieldAssignmentStatement.StaticField);
                     C($" = ");
-                    TranslateExpression(staticFieldAssignmentStatement.Expression);
+                    TranslateExpression(staticFieldAssignmentStatement.Expression, false);
                     CL(";");
                     break;
                 }
@@ -654,15 +639,15 @@ public static class Transpiler
                         throw new Exception($"Instance field type assignment mismatch on line {instanceFieldAssignmentStatement.Line}");
                     TranslateExpression(instanceFieldAssignmentStatement.InstanceField);
                     C($" = ");
-                    TranslateExpression(instanceFieldAssignmentStatement.Expression);
+                    TranslateExpression(instanceFieldAssignmentStatement.Expression, false);
                     CL(";");
                     break;
                 }
             case WhileStatement whileStatement:
                 {
                     C("while (");
-                    TranslateExpression(whileStatement.Condition);
-                    C(")");
+                    TranslateExpression(whileStatement.Condition, false);
+                    C(") ");
                     TranslateStatement(whileStatement.Body);
                     break;
                 }
@@ -686,20 +671,9 @@ public static class Transpiler
                     CL();
                     if (blockStatement.Locals.Count > 0)
                     {
-                        CL("runtime_gc(state);");
-                        CL($"ReferenceLocal *l_prev_{Blocks++} = state->locals;");
+                        CL($"block_enter({Blocks++});");
                         foreach (var local in blockStatement.Locals)
-                        {
-                            CL($"{TranslateType(local.Value)} l_{local.Key};");
-                            if (local.Value is ClassType)
-                            {
-                                CL($"l_{local.Key} = NULL;");
-                                CL($"runtime_reference_local(state, (Instance**)&l_{local.Key}, l_r_{local.Key});");
-                            }
-                            else if (local.Value is ValueType)
-                                CL($"l_{local.Key} = 0;");
-                            CL($"(void)l_{local.Key};");
-                        }
+                            CL($"{(local.Value is ClassType ? "class" : "value")}_local({TranslateType(local.Value)}, {local.Key});");
                         CL();
                     }
                     locals.Push(blockStatement.Locals);
@@ -708,8 +682,7 @@ public static class Transpiler
                     locals.Pop();
                     if (blockStatement.Locals.Count > 0)
                     {
-                        CL($"state->locals = l_prev_{--Blocks};");
-                        CL("runtime_gc(state);");
+                        CL($"block_exit({--Blocks});");
                     }
                     indent--;
                     CL();
@@ -914,9 +887,10 @@ public static class Transpiler
                     }
                     if (paren)
                         C("(");
-                    C($"({BuildFunctionPointerCast(method!)}");
-                    C($"get_{@class!.Namespace}_{@class.Name}()");
-                    C($"->methods[{method!.i}].entry)(");
+                    C("static_method_call(");
+                    C($"{BuildFunctionPointerType(method!)}, ");
+                    C($"{@class!.Namespace}_{@class.Name}, ");
+                    C($"{method!.i}, ");
                     TranslateArguments(callStaticExpression.Arguments);
                     C(")");
                     if (paren)
@@ -936,9 +910,10 @@ public static class Transpiler
                     }
                     if (paren)
                         C("(");
-                    C($"({BuildFunctionPointerCast(method!)}");
-                    C($"get_{@class!.Namespace}_{@class.Name}()");
-                    C($"->methods[{method!.i}].entry)(");
+                    C("static_method_call(");
+                    C($"{BuildFunctionPointerType(method!)}, ");
+                    C($"{@class!.Namespace}_{@class.Name}, ");
+                    C($"{method!.i}, ");
                     TranslateArguments(callExpression.Arguments);
                     C(")");
                     if (paren)
@@ -979,9 +954,10 @@ public static class Transpiler
                     }
                     if (paren)
                         C("(");
-                    C($"({BuildFunctionPointerCast(method!)}");
-                    C($"get_{@class!.Namespace}_{@class.Name}()");
-                    C($"->methods[{method!.i}].entry)(");
+                    C("static_method_call(");
+                    C($"{BuildFunctionPointerType(method!)}, ");
+                    C($"{@class!.Namespace}_{@class.Name}, ");
+                    C($"{method!.i}, ");
                     TranslateArguments(callInstanceExpression.Arguments);
                     C(")");
                     if (paren)
@@ -1000,7 +976,7 @@ public static class Transpiler
                         throw new Exception($"Static field not found on line {staticFieldExpression.Line}");
                     if (paren)
                         C("(");
-                    C($"((static_{@class.Namespace}_{@class.Name}*)get_{@class.Namespace}_{@class.Name}()->static_data)->f_{field}");
+                    C($"static_data({@class.Namespace}_{@class.Name})->f_{field}");
                     if (paren)
                         C(")");
                     break;
