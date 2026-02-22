@@ -378,15 +378,14 @@ int main(int argc, char **argv)
                 Method *m = &def->methods[j];
                 if (strcmp(m->name, "Main") == 0)
                 {
-                    printf("Calling App.Main\n");
                     ((void (*)(void))m->entry)();
-                    printf("App.Main returned\n");
                     goto exit;
                 }
             }
     }
 
 exit:
+    runtime_gc_collect(state);
     runtime_free(state);
     printf("GC time: %f ms\n", gc_time);
     return 0;
