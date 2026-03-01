@@ -1,12 +1,30 @@
 using System.Collections;
 using System.Net;
 
-public record FileParseResult(List<Class> Classes, List<string> ImportedNamespaces, List<ClassType> UsingTypes, string Path = "");
+public record FileParseResult(List<Class> Classes, List<InterfaceDef> Interfaces, List<string> ImportedNamespaces, List<ClassType> UsingTypes, string Path = "");
 public static class Parser
 {
-    static Dictionary<string, (Type type, int id)> arguments = new();
-    static DictionaryStack<string, (Type type, int id)> locals = new();
-    static Stack<int> localIDs = new();
+    sealed class ParseState
+    {
+        public Dictionary<string, (Type type, int id)> Arguments { get; } = new();
+        public DictionaryStack<string, (Type type, int id)> Locals { get; } = new();
+        public Stack<int> LocalIDs { get; } = new();
+        public string Namespace = "";
+        public string ClassName = "";
+        public Dictionary<string, Type> Qualified { get; } = new();
+    }
+
+    [ThreadStatic]
+    static ParseState? currentState;
+
+    static ParseState State => currentState ?? throw new InvalidOperationException("Parser state is not initialized");
+    static Dictionary<string, (Type type, int id)> arguments => State.Arguments;
+    static DictionaryStack<string, (Type type, int id)> locals => State.Locals;
+    static Stack<int> localIDs => State.LocalIDs;
+    static string ns { get => State.Namespace; set => State.Namespace = value; }
+    static string className { get => State.ClassName; set => State.ClassName = value; }
+    static Dictionary<string, Type> qualified => State.Qualified;
+
     public static FileParseResult Parse(TokenSet tokens, string path)
     {
         try
@@ -18,56 +36,122 @@ public static class Parser
             throw new Exception($"Error parsing at line {tokens.Get(false).line}: {e.Message}");
         }
     }
-    static string ns = "";
-    static string className = "";
-    static Dictionary<string, Type> qualified = new();
     public static FileParseResult Parse(TokenSet tokens)
     {
-        List<Class> classes = new();
-        List<string> importedNamespaces = ["STD"];
-        List<ClassType> usingTypes = [new ClassType("STD", "STD")];
-        qualified.Clear();
-        ns = "";
-        while (tokens.Safe())
-            if (tokens.IsIdentifier("class"))
-            {
-                if (string.IsNullOrWhiteSpace(ns))
-                    throw new Exception("Class must be defined after a namespace");
-                className = tokens.Identifier(out int classLine);
-                tokens.Symbol("{");
-                List<Method> methods = new();
-                List<Field> staticFields = new();
-                List<Field> instanceFields = new();
-                while (!tokens.IsSymbol("}"))
+        ParseState? previousState = currentState;
+        currentState = new ParseState();
+        try
+        {
+            List<Class> classes = new();
+            List<InterfaceDef> interfaces = new();
+            List<string> importedNamespaces = ["STD"];
+            List<ClassType> usingTypes = [new ClassType("STD", "STD")];
+            while (tokens.Safe())
+                if (tokens.IsIdentifier("class"))
                 {
-                    bool static_ = tokens.IsIdentifier("static");
-                    string typeId = tokens.Identifier(out int typeLine);
-                    Type? type = null;
-                    if (typeId != "void")
-                        type = ParseType(tokens, typeId, typeLine);
-                    string name = tokens.Identifier(out int nameLine);
-                    if (name == "Unbox" || name == "Box")
-                        throw new Exception("Cannot use Unbox or Box as a member name");
-                    if (tokens.IsSymbol(";"))
-                        (static_ ? staticFields : instanceFields).Add(new Field(name, type ?? throw new Exception("Fields cannot use void type"), nameLine));
-                    else
+                    if (string.IsNullOrWhiteSpace(ns))
+                        throw new Exception("Class must be defined after a namespace");
+                    className = tokens.Identifier(out int classLine);
+                    ClassType? baseType = null;
+                    List<ClassType> interfaceTypes = new();
+                    if (tokens.IsSymbol(":"))
                     {
-                        var args = new List<Type>();
-                        int id = 0;
-                        arguments.Clear();
-                        if (!static_)
+                        baseType = ParseType(tokens) as ClassType ?? throw new Exception("Base type must be a class/interface type");
+                        if (baseType.Nullable)
+                            throw new Exception("Base type cannot be nullable");
+                        while (tokens.IsSymbol(","))
                         {
-                            arguments.Add("self", (new ClassType(ns, className, nameLine), id++));
-                            args.Add(new ClassType(ns, className, nameLine));
+                            ClassType interfaceType = ParseType(tokens) as ClassType ?? throw new Exception("Implemented type must be a class/interface type");
+                            if (interfaceType.Nullable)
+                                throw new Exception("Implemented type cannot be nullable");
+                            interfaceTypes.Add(interfaceType);
                         }
+                    }
+                    tokens.Symbol("{");
+                    List<Method> methods = new();
+                    List<Field> staticFields = new();
+                    List<Field> instanceFields = new();
+                    while (!tokens.IsSymbol("}"))
+                    {
+                        bool static_ = tokens.IsIdentifier("static");
+                        string typeId = tokens.Identifier(out int typeLine);
+                        Type? type = null;
+                        if (typeId != "void")
+                            type = ParseType(tokens, typeId, typeLine);
+                        string name = tokens.Identifier(out int nameLine);
+                        if (name == "Unbox" || name == "Box")
+                            throw new Exception("Cannot use Unbox or Box as a member name");
+                        if (tokens.IsSymbol(";"))
+                            (static_ ? staticFields : instanceFields).Add(new Field(name, type ?? throw new Exception("Fields cannot use void type"), nameLine));
+                        else
+                        {
+                            var args = new List<Type>();
+                            int id = 0;
+                            arguments.Clear();
+                            if (!static_)
+                            {
+                                arguments.Add("self", (new ClassType(ns, className, nameLine), id++));
+                                args.Add(new ClassType(ns, className, nameLine));
+                            }
+                            if (tokens.IsSymbol("("))
+                                while (!tokens.IsSymbol(")"))
+                                {
+                                    Type argType = ParseType(tokens);
+                                    string argName = tokens.Identifier(out _);
+                                    if (arguments.ContainsKey(argName))
+                                        throw new Exception($"Duplicate argument name '{argName}'");
+                                    arguments.Add(argName, (argType, id++));
+                                    args.Add(argType);
+                                    if (!tokens.IsSymbol(","))
+                                    {
+                                        tokens.Symbol(")");
+                                        break;
+                                    }
+                                }
+                            else if (!tokens.IsSymbol("!"))
+                                throw new Exception("Expected ! or ( or ; for member of class");
+                            locals.Push();
+                            localIDs.Push(0);
+                            Statement statement;
+                            if (tokens.IsSymbol("=>", out int arrowLine))
+                            {
+                                statement = new ReturnStatement(ParseExpression(tokens), arrowLine);
+                                tokens.Symbol(";");
+                            }
+                            else
+                                statement = ParseStatement(tokens);
+                            localIDs.Pop();
+                            locals.Pop();
+                            methods.Add(new Method(name, args, type, statement, nameLine) { i = methods.Count });
+                        }
+                    }
+                    if (instanceFields.Count > 0 || baseType != null)
+                    {
+                        methods.Add(new Method("Box", [new ClassType(ns, className) { Nullable = true }], new ClassType("STD", "Any"), new EmptyStatement(classLine), classLine) { i = methods.Count });
+                        methods.Add(new Method("Unbox", [new ClassType("STD", "Any") { Nullable = true }], new ClassType(ns, className) { Nullable = true }, new EmptyStatement(classLine), classLine) { i = methods.Count });
+                    }
+                    classes.Add(new Class(ns, className, classLine, methods, staticFields, instanceFields, baseType, interfaceTypes));
+                }
+                else if (tokens.IsIdentifier("interface"))
+                {
+                    if (string.IsNullOrWhiteSpace(ns))
+                        throw new Exception("Interface must be defined after a namespace");
+                    string interfaceName = tokens.Identifier(out int interfaceLine);
+                    tokens.Symbol("{");
+                    List<InterfaceMethod> methods = new();
+                    while (!tokens.IsSymbol("}"))
+                    {
+                        string typeId = tokens.Identifier(out int typeLine);
+                        Type? returnType = null;
+                        if (typeId != "void")
+                            returnType = ParseType(tokens, typeId, typeLine);
+                        string methodName = tokens.Identifier(out int methodLine);
+                        var args = new List<Type>();
                         if (tokens.IsSymbol("("))
                             while (!tokens.IsSymbol(")"))
                             {
                                 Type argType = ParseType(tokens);
                                 string argName = tokens.Identifier(out _);
-                                if (arguments.ContainsKey(argName))
-                                    throw new Exception($"Duplicate argument name '{argName}'");
-                                arguments.Add(argName, (argType, id++));
                                 args.Add(argType);
                                 if (!tokens.IsSymbol(","))
                                 {
@@ -76,60 +160,48 @@ public static class Parser
                                 }
                             }
                         else if (!tokens.IsSymbol("!"))
-                            throw new Exception("Expected ! or ( or ; for member of class");
-                        locals.Push();
-                        localIDs.Push(0);
-                        Statement statement;
-                        if (tokens.IsSymbol("=>", out int arrowLine))
-                        {
-                            statement = new ReturnStatement(ParseExpression(tokens), arrowLine);
-                            tokens.Symbol(";");
-                        }
-                        else
-                            statement = ParseStatement(tokens);
-                        localIDs.Pop();
-                        locals.Pop();
-                        methods.Add(new Method(name, args, type, statement, nameLine) { i = methods.Count });
+                            throw new Exception("Expected ! or ( for interface member");
+                        tokens.Symbol(";");
+                        methods.Add(new InterfaceMethod(methodName, args, returnType, methodLine));
                     }
+                    interfaces.Add(new InterfaceDef(ns, interfaceName, interfaceLine, methods));
                 }
-                if (instanceFields.Count > 0)
+                else if (tokens.IsIdentifier("import"))
                 {
-                    methods.Add(new Method("Box", [new ClassType(ns, className) { Nullable = true }], new ClassType("STD", "Any"), new EmptyStatement(classLine), classLine) { i = methods.Count });
-                    methods.Add(new Method("Unbox", [new ClassType("STD", "Any") { Nullable = true }], new ClassType(ns, className) { Nullable = true }, new EmptyStatement(classLine), classLine) { i = methods.Count });
+                    string importName = tokens.Identifier(out _);
+                    importedNamespaces.Add(importName);
+                    tokens.Symbol(";");
                 }
-                classes.Add(new Class(ns, className, classLine, methods, staticFields, instanceFields));
-            }
-            else if (tokens.IsIdentifier("import"))
-            {
-                string importName = tokens.Identifier(out _);
-                importedNamespaces.Add(importName);
-                tokens.Symbol(";");
-            }
-            else if (tokens.IsIdentifier("namespace"))
-            {
-                ns = tokens.Identifier(out _);
-                tokens.Symbol(";");
-            }
-            else if (tokens.IsIdentifier("type"))
-            {
-                string alias = tokens.Identifier(out _);
-                tokens.Symbol("=");
-                string namespace_ = tokens.Identifier(out _);
-                string name = tokens.Identifier(out _);
-                qualified[alias] = new ClassType(namespace_, name);
-                tokens.Symbol(";");
-            }
-            else if (tokens.IsIdentifier("using", out var usingLine))
-            {
-                ClassType type = ParseType(tokens) as ClassType ?? throw new Exception("Expected class type for using");
-                if (type.Nullable)
-                    throw new Exception("Nullable types are not supported for using, wtf are you doing lol");
-                tokens.Symbol(";");
-                usingTypes.Add(type);
-            }
-            else
-                throw new Exception("Expected import, namespace, or class");
-        return new FileParseResult(classes, importedNamespaces, usingTypes);
+                else if (tokens.IsIdentifier("namespace"))
+                {
+                    ns = tokens.Identifier(out _);
+                    tokens.Symbol(";");
+                }
+                else if (tokens.IsIdentifier("type"))
+                {
+                    string alias = tokens.Identifier(out _);
+                    tokens.Symbol("=");
+                    string namespace_ = tokens.Identifier(out _);
+                    string name = tokens.Identifier(out _);
+                    qualified[alias] = new ClassType(namespace_, name);
+                    tokens.Symbol(";");
+                }
+                else if (tokens.IsIdentifier("using", out var usingLine))
+                {
+                    ClassType type = ParseType(tokens) as ClassType ?? throw new Exception("Expected class type for using");
+                    if (type.Nullable)
+                        throw new Exception("Nullable types are not supported for using, wtf are you doing lol");
+                    tokens.Symbol(";");
+                    usingTypes.Add(type);
+                }
+                else
+                    throw new Exception("Expected import, namespace, class, or interface");
+            return new FileParseResult(classes, interfaces, importedNamespaces, usingTypes);
+        }
+        finally
+        {
+            currentState = previousState;
+        }
     }
     static readonly string[] valueTypes = new[]
     {
@@ -224,6 +296,58 @@ public static class Parser
         else
             throw new Exception($"Invalid assignment target");
     }
+    static Statement ParseTryStatement(TokenSet tokens, int line)
+    {
+        var body = ParseStatement(tokens);
+        if (body is not CallStatement call)
+            throw new Exception("Expected try body to be a call statement");
+        Dictionary<ClassType, CallStatement> catchers = new();
+        while (tokens.IsIdentifier("catch", out int catchLine))
+        {
+            ClassType type = ParseType(tokens) as ClassType ?? throw new Exception("Expected class type for catch");
+            var statement = ParseStatement(tokens);
+            if (statement is not CallStatement catchCall)
+                throw new Exception("Expected catch statement to be a call statement");
+            catchers.Add(type, catchCall);
+        }
+        if (catchers.Count == 0)
+            throw new Exception("Expected at least one catch");
+        return new TryStatement(call, catchers, line);
+    }
+    static Statement ParseThrowStatement(TokenSet tokens, int line)
+    {
+        var expression = ParseExpression(tokens);
+        tokens.Symbol(";");
+        return new ThrowStatement(expression, line);
+    }
+    static bool IsSimpleIsSource(Expression expression)
+    {
+        return expression is LocalExpression or ArgumentExpression or StaticFieldExpression or InstanceFieldExpression or ClassExpression;
+    }
+    static Statement ParseIsStatement(TokenSet tokens, int line)
+    {
+        ClassType targetType = ParseType(tokens) as ClassType ?? throw new Exception("is target type must be class/interface");
+        if (targetType.Nullable)
+            throw new Exception("is target type cannot be nullable");
+        string name = tokens.Identifier(out int nameLine);
+        tokens.Symbol("=");
+        Expression source = ParseExpression(tokens);
+        if (!IsSimpleIsSource(source))
+            throw new Exception("is source must be a simple expression");
+        tokens.Symbol(";");
+        locals.Push();
+        localIDs.Push(localIDs.Peek());
+        int id = localIDs.Pop() + 1;
+        localIDs.Push(id);
+        locals.Set(name, (targetType, id));
+        Statement trueBody = ParseStatement(tokens);
+        localIDs.Pop();
+        locals.Pop();
+        Statement? falseBody = null;
+        if (tokens.IsIdentifier("else"))
+            falseBody = ParseStatement(tokens);
+        return new IsStatement(targetType, id, source, trueBody, falseBody, line);
+    }
     static Statement ParseStatement(TokenSet tokens)
     {
         int line;
@@ -237,6 +361,12 @@ public static class Parser
             return ParseReturnStatement(tokens, line);
         if (tokens.IsIdentifier("gc", out line))
             return ParseGcStatement(tokens, line);
+        if (tokens.IsIdentifier("try", out line))
+            return ParseTryStatement(tokens, line);
+        if (tokens.IsIdentifier("throw", out line))
+            return ParseThrowStatement(tokens, line);
+        if (tokens.IsIdentifier("is", out line))
+            return ParseIsStatement(tokens, line);
         if (tokens.IsSymbol(";", out line))
             return new EmptyStatement(line);
         tokens.Push();
@@ -361,6 +491,29 @@ public static class Parser
     {
         if (token.value == "new")
             return new NewExpression(token.line);
+        else if (token.value == "is")
+        {
+            ClassType targetType = ParseType(tokens) as ClassType ?? throw new Exception("is target type must be class/interface");
+            if (targetType.Nullable)
+                throw new Exception("is target type cannot be nullable");
+            string name = tokens.Identifier(out int nameLine);
+            tokens.Symbol("=");
+            Expression source = ParseExpression(tokens);
+            if (!IsSimpleIsSource(source))
+                throw new Exception("is source must be a simple expression");
+            tokens.Symbol(";");
+            locals.Push();
+            localIDs.Push(localIDs.Peek());
+            int id = localIDs.Pop() + 1;
+            localIDs.Push(id);
+            locals.Set(name, (targetType, id));
+            Expression trueBody = ParseExpression(tokens);
+            localIDs.Pop();
+            locals.Pop();
+            tokens.Identifier("else");
+            Expression falseBody = ParseExpression(tokens);
+            return new IsExpression(targetType, id, source, trueBody, falseBody, token.line);
+        }
         else if (token.value == "true")
             return new NumberExpression("1", token.line);
         else if (token.value == "false")
@@ -439,6 +592,14 @@ public static class Parser
             if (tokens.IsSymbol("@", out int opLine))
             {
                 left = new PostfixExpression(left, "@", opLine);
+                continue;
+            }
+            if (tokens.IsIdentifier("as", out int asLine))
+            {
+                ClassType targetType = ParseType(tokens) as ClassType ?? throw new Exception("as target type must be class/interface");
+                if (targetType.Nullable)
+                    throw new Exception("as target type cannot be nullable");
+                left = new AsExpression(left, targetType, asLine);
                 continue;
             }
             return left;

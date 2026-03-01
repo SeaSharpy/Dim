@@ -16,6 +16,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <setjmp.h>
 #include "platform_dll.h"
 #include "platform_time.h"
 #include "stb_ds.h"
@@ -96,6 +97,31 @@
 
 #define ret_void return
 
+#define try                                        \
+    do                                             \
+    {                                              \
+        volatile jmp_buf buf;                      \
+        volatile ErrorCatcher error_catcher = {0}; \
+        error_catcher.buf = &buf;                  \
+        error_catcher.prev = state->error_catcher; \
+        state->error_catcher = &error_catcher;     \
+        if (setjmp(buf) == 0)
+
+#define catch                                           \
+    else                                                \
+    {                                                   \
+        Instance *exception = runtime_exception(state); \
+        if (exception)                                  \
+
+#define endcatch                               \
+        else                                       \
+            runtime_throw(state, exception);       \
+    }                                          \
+    state->error_catcher = error_catcher.prev; \
+    }                                          \
+    while (0)                                  \
+        ;
+
 #ifdef FUNCTION_SIG
 EXPORT RuntimeState *runtime_init();
 EXPORT bool runtime_load_package(const char *name, RuntimeState *state);
@@ -109,6 +135,8 @@ EXPORT void runtime_sub_alloc(RuntimeState *state, size_t size);
 EXPORT void runtime_show_instance(RuntimeState *state, Instance *instance);
 EXPORT void *runtime_null_coalesce(void *a, void *b);
 EXPORT void *runtime_unwrap(void *a, int line);
+EXPORT void runtime_throw(RuntimeState *state, Instance *exception);
+EXPORT Instance *runtime_exception(RuntimeState *state);
 #else
 #ifdef FUNCTION_VAR
 RuntimeInitFunc runtime_init;
@@ -123,6 +151,8 @@ RuntimeAllocFunc runtime_sub_alloc;
 RuntimeShowInstanceFunc runtime_show_instance;
 RuntimeNullCoalesceFunc runtime_null_coalesce;
 RuntimeUnwrapFunc runtime_unwrap;
+RuntimeThrowFunc runtime_throw;
+RuntimeExceptionFunc runtime_exception;
 #else
 #ifdef FUNCTION_VAR_EXT
 extern RuntimeInitFunc runtime_init;
@@ -137,6 +167,8 @@ extern RuntimeAllocFunc runtime_sub_alloc;
 extern RuntimeShowInstanceFunc runtime_show_instance;
 extern RuntimeNullCoalesceFunc runtime_null_coalesce;
 extern RuntimeUnwrapFunc runtime_unwrap;
+extern RuntimeThrowFunc runtime_throw;
+extern RuntimeExceptionFunc runtime_exception;
 #endif
 #endif
 #endif

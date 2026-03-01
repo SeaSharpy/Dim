@@ -230,6 +230,8 @@ EXPORT bool runtime_load_package(const char *name, RuntimeState *state)
     table.runtime_show_instance = runtime_show_instance;
     table.runtime_null_coalesce = runtime_null_coalesce;
     table.runtime_unwrap = runtime_unwrap;
+    table.runtime_throw = runtime_throw;
+    table.runtime_exception = runtime_exception;
     ((GetDefinitionsFunc)getDefinitions)(&table);
 
     for (int i = 0; i < table.count; i++)
@@ -241,7 +243,7 @@ EXPORT bool runtime_load_package(const char *name, RuntimeState *state)
     return true;
 }
 
-EXPORT void runtime_show_instance(RuntimeState* state, Instance *instance)
+EXPORT void runtime_show_instance(RuntimeState *state, Instance *instance)
 {
     if (!instance)
         return;
@@ -250,7 +252,7 @@ EXPORT void runtime_show_instance(RuntimeState* state, Instance *instance)
     arrput(state->gc_worklist, instance);
 }
 
-static double gc_time = 0;
+static volatile double gc_time = 0;
 
 static void runtime_gc_collect(RuntimeState *state)
 {
@@ -354,9 +356,31 @@ EXPORT void runtime_sub_alloc(RuntimeState *state, size_t size)
         state->allocated_bytes -= size;
 }
 
+EXPORT void runtime_throw(RuntimeState *state, Instance *exception)
+{
+    if (!state)
+        return;
+    if (state->error_catcher)
+    {
+        jmp_buf *buf = state->error_catcher->buf;
+        state->error_catcher = state->error_catcher->prev;
+        state->exception = exception;
+        longjmp(*buf, 1);
+    }
+    printf("Runtime error with no catcher. Aborting.\n");
+    abort();
+}
+
+EXPORT Instance *runtime_exception(RuntimeState *state)
+{
+    if (!state)
+        return NULL;
+    return state->exception;
+}
+
 int main(int argc, char **argv)
 {
-    RuntimeState *state = runtime_init();
+    volatile RuntimeState *state = runtime_init();
     if (!state)
     {
         printf("Failed to init runtime\n");
@@ -368,7 +392,11 @@ int main(int argc, char **argv)
         return 1;
     }
     load_packages_from_folder(argv[1], state);
-
+    volatile jmp_buf buf;
+    volatile ErrorCatcher error_catcher = {0};
+    error_catcher.buf = &buf;
+    state->error_catcher = &error_catcher;
+    volatile bool success = true;
     for (int i = 0; i < arrlen(state->definitions); i++)
     {
         Definition *def = state->definitions[i];
@@ -378,13 +406,28 @@ int main(int argc, char **argv)
                 Method *m = &def->methods[j];
                 if (strcmp(m->name, "Main") == 0)
                 {
-                    ((void (*)(void))m->entry)();
+                    if (setjmp(buf) == 0)
+                        ((void (*)(void))m->entry)();
+                    else
+                        success = false;
                     goto exit;
                 }
             }
     }
 
 exit:
+    if (!success)
+    {
+        printf("Exited with exception.\n");
+        Instance *exception = runtime_exception(state);
+        if (exception)
+        {
+            Definition *def = exception->definition;
+            printf("Exception: %s %s.\n", def->namespace_, def->name);
+        }
+        else
+            printf("Exception: nil.\n");
+    }
     runtime_gc_collect(state);
     runtime_free(state);
     printf("GC time: %f ms\n", gc_time);

@@ -1,7 +1,36 @@
 using System.Security.Cryptography;
 using System.Text;
-public static class Transpiler
+public static partial class Transpiler
 {
+    sealed class TranspileState
+    {
+        public StringBuilder HeaderBuilder { get; } = new();
+        public StringBuilder SourceBuilder { get; } = new();
+        public StringBuilder MethodsBuilder { get; } = new();
+        public int Indent;
+        public DictionaryStack<int, Type> Locals { get; } = new();
+        public Dictionary<int, Type> Arguments { get; } = new();
+        public Dictionary<int, (ClassType target, Expression source)> InlineIsBindings { get; } = new();
+        public HashSet<int> VolatileLocals { get; set; } = new();
+        public string FullName = "";
+        public string FullClassName = "";
+        public Type CurrentType = new ValueType("");
+        public Type? ReturnType;
+        public string Namespace = "";
+        public string Name = "";
+        public Class Current = null!;
+        public List<string> ImportedNamespaces { get; set; } = new();
+        public List<ClassType> UsingTypes { get; set; } = new();
+        public int Blocks;
+        public List<Class> Classes { get; set; } = new();
+        public List<InterfaceDef> Interfaces { get; set; } = new();
+    }
+
+    [ThreadStatic]
+    static TranspileState? currentState;
+
+    static TranspileState State => currentState ?? throw new InvalidOperationException("Transpiler state is not initialized");
+
     static readonly string[] valueTypes = new[]
     {
         "bool", "int", "uint", "long", "ulong", "float", "double", "byte", "char", "short", "ushort", "cstr", "inst"
@@ -46,6 +75,8 @@ public static class Transpiler
         }
         else if (type is ClassType classType)
         {
+            if (TryGetInterface(classType, out _))
+                return "Instance*";
             Class @class = GetClass(classType);
             return $"{@class.Namespace}_{@class.Name}*";
         }
@@ -53,10 +84,27 @@ public static class Transpiler
             throw new Exception($"Invalid type on line {type.Line}");
     }
 
-    static readonly StringBuilder h = new();
-    static readonly StringBuilder c = new();
-    static readonly StringBuilder m2 = new();
-    static int indent = 0;
+    static StringBuilder h => State.HeaderBuilder;
+    static StringBuilder c => State.SourceBuilder;
+    static StringBuilder m2 => State.MethodsBuilder;
+    static int indent { get => State.Indent; set => State.Indent = value; }
+    static DictionaryStack<int, Type> locals => State.Locals;
+    static Dictionary<int, Type> arguments => State.Arguments;
+    static Dictionary<int, (ClassType target, Expression source)> inlineIsBindings => State.InlineIsBindings;
+    static HashSet<int> volatileLocals { get => State.VolatileLocals; set => State.VolatileLocals = value; }
+    static string FullName { get => State.FullName; set => State.FullName = value; }
+    static string FullClassName { get => State.FullClassName; set => State.FullClassName = value; }
+    static Type CurrentType { get => State.CurrentType; set => State.CurrentType = value; }
+    static Type? ReturnType { get => State.ReturnType; set => State.ReturnType = value; }
+    static string Namespace { get => State.Namespace; set => State.Namespace = value; }
+    static string Name { get => State.Name; set => State.Name = value; }
+    static Class Current { get => State.Current; set => State.Current = value; }
+    static List<string> ImportedNamespaces { get => State.ImportedNamespaces; set => State.ImportedNamespaces = value; }
+    static List<ClassType> UsingTypes { get => State.UsingTypes; set => State.UsingTypes = value; }
+    static int Blocks { get => State.Blocks; set => State.Blocks = value; }
+    static List<Class> classes { get => State.Classes; set => State.Classes = value; }
+    static List<InterfaceDef> interfaces { get => State.Interfaces; set => State.Interfaces = value; }
+
     static void H(string text = "") => h.Append(text);
     static void C(string text = "") => c.Append(text);
     static void M2(string text = "") => m2.Append(text);
@@ -109,77 +157,254 @@ public static class Transpiler
         string args = argTypes.Count == 0 ? "void" : string.Join(", ", argTypes);
         return $"{returnType} (*)({args})";
     }
+    static void CollectLocalIds(Expression expression, HashSet<int> ids)
+    {
+        switch (expression)
+        {
+            case LocalExpression localExpression:
+                ids.Add(localExpression.ID);
+                return;
+            case ArgumentExpression:
+            case NumberExpression:
+            case StringExpression:
+            case ClassExpression:
+            case StaticFieldExpression:
+            case NewExpression:
+            case NilExpression:
+                return;
+            case CallStaticExpression callStaticExpression:
+                foreach (var arg in callStaticExpression.Arguments)
+                    CollectLocalIds(arg, ids);
+                return;
+            case CallExpression callExpression:
+                foreach (var arg in callExpression.Arguments)
+                    CollectLocalIds(arg, ids);
+                return;
+            case CallInstanceExpression callInstanceExpression:
+                foreach (var arg in callInstanceExpression.Arguments)
+                    CollectLocalIds(arg, ids);
+                return;
+            case InstanceFieldExpression instanceFieldExpression:
+                CollectLocalIds(instanceFieldExpression.Instance, ids);
+                return;
+            case BinaryExpression binaryExpression:
+                CollectLocalIds(binaryExpression.Left, ids);
+                CollectLocalIds(binaryExpression.Right, ids);
+                return;
+            case UnaryExpression unaryExpression:
+                CollectLocalIds(unaryExpression.Right, ids);
+                return;
+            case PostfixExpression postfixExpression:
+                CollectLocalIds(postfixExpression.Left, ids);
+                return;
+            case IfExpression ifExpression:
+                CollectLocalIds(ifExpression.Condition, ids);
+                CollectLocalIds(ifExpression.True, ids);
+                CollectLocalIds(ifExpression.False, ids);
+                return;
+            case IsExpression isExpression:
+                CollectLocalIds(isExpression.Source, ids);
+                CollectLocalIds(isExpression.True, ids);
+                CollectLocalIds(isExpression.False, ids);
+                return;
+            case AsExpression asExpression:
+                CollectLocalIds(asExpression.Source, ids);
+                return;
+            default:
+                return;
+        }
+    }
+    static bool ContainsTryStatement(Statement statement)
+    {
+        switch (statement)
+        {
+            case TryStatement:
+                return true;
+            case BlockStatement blockStatement:
+                return blockStatement.Body.Any(ContainsTryStatement);
+            case IfStatement ifStatement:
+                return ContainsTryStatement(ifStatement.True) || (ifStatement.False != null && ContainsTryStatement(ifStatement.False));
+            case WhileStatement whileStatement:
+                return ContainsTryStatement(whileStatement.Body);
+            case IsStatement isStatement:
+                return ContainsTryStatement(isStatement.True) || (isStatement.False != null && ContainsTryStatement(isStatement.False));
+            default:
+                return false;
+        }
+    }
+    static void CollectStatementLocalReads(Statement statement, HashSet<int> ids)
+    {
+        switch (statement)
+        {
+            case CallStatement callStatement:
+                CollectLocalIds(callStatement.Expression, ids);
+                return;
+            case ReturnStatement returnStatement:
+                if (returnStatement.Expression != null)
+                    CollectLocalIds(returnStatement.Expression, ids);
+                return;
+            case AssignmentStatement assignmentStatement:
+                CollectLocalIds(assignmentStatement.Expression, ids);
+                return;
+            case ThrowStatement throwStatement:
+                CollectLocalIds(throwStatement.Expression, ids);
+                return;
+            case LocalAssignmentStatement localAssignmentStatement:
+                CollectLocalIds(localAssignmentStatement.Expression, ids);
+                return;
+            case StaticFieldAssignmentStatement staticFieldAssignmentStatement:
+                CollectLocalIds(staticFieldAssignmentStatement.StaticField, ids);
+                CollectLocalIds(staticFieldAssignmentStatement.Expression, ids);
+                return;
+            case InstanceFieldAssignmentStatement instanceFieldAssignmentStatement:
+                CollectLocalIds(instanceFieldAssignmentStatement.InstanceField, ids);
+                CollectLocalIds(instanceFieldAssignmentStatement.Expression, ids);
+                return;
+            case WhileStatement whileStatement:
+                CollectLocalIds(whileStatement.Condition, ids);
+                CollectStatementLocalReads(whileStatement.Body, ids);
+                return;
+            case IfStatement ifStatement:
+                CollectLocalIds(ifStatement.Condition, ids);
+                CollectStatementLocalReads(ifStatement.True, ids);
+                if (ifStatement.False != null)
+                    CollectStatementLocalReads(ifStatement.False, ids);
+                return;
+            case IsStatement isStatement:
+                CollectLocalIds(isStatement.Source, ids);
+                CollectStatementLocalReads(isStatement.True, ids);
+                if (isStatement.False != null)
+                    CollectStatementLocalReads(isStatement.False, ids);
+                return;
+            case TryStatement tryStatement:
+                CollectStatementLocalReads(tryStatement.Body, ids);
+                foreach (var (_, callStatement) in tryStatement.Catchers)
+                    CollectLocalIds(callStatement.Expression, ids);
+                return;
+            case BlockStatement blockStatement:
+                foreach (var sub in blockStatement.Body)
+                    CollectStatementLocalReads(sub, ids);
+                return;
+            default:
+                return;
+        }
+    }
+    static void CollectLocalReadsAfterTry(Statement statement, HashSet<int> ids, bool afterTry = false)
+    {
+        switch (statement)
+        {
+            case BlockStatement blockStatement:
+                bool seenTry = afterTry;
+                foreach (var sub in blockStatement.Body)
+                {
+                    if (seenTry)
+                        CollectStatementLocalReads(sub, ids);
+                    CollectLocalReadsAfterTry(sub, ids, seenTry);
+                    if (ContainsTryStatement(sub))
+                        seenTry = true;
+                }
+                return;
+            case IfStatement ifStatement:
+                CollectLocalReadsAfterTry(ifStatement.True, ids, afterTry);
+                if (ifStatement.False != null)
+                    CollectLocalReadsAfterTry(ifStatement.False, ids, afterTry);
+                return;
+            case WhileStatement whileStatement:
+                CollectLocalReadsAfterTry(whileStatement.Body, ids, afterTry);
+                return;
+            case IsStatement isStatement:
+                CollectLocalReadsAfterTry(isStatement.True, ids, afterTry);
+                if (isStatement.False != null)
+                    CollectLocalReadsAfterTry(isStatement.False, ids, afterTry);
+                return;
+            case TryStatement tryStatement:
+                CollectLocalReadsAfterTry(tryStatement.Body, ids, afterTry);
+                foreach (var (_, callStatement) in tryStatement.Catchers)
+                    CollectLocalIds(callStatement.Expression, ids);
+                return;
+            default:
+                return;
+        }
+    }
+    static void EmitLocalDeclaration(Type type, int id, bool isVolatile)
+    {
+        string cType = TranslateType(type);
+        if (!isVolatile)
+        {
+            CL($"{(type is ClassType ? "class" : "value")}_local({cType}, {id});");
+            return;
+        }
+        if (type is ClassType)
+        {
+            CL($"{cType} volatile l_{id} = NULL;");
+            CL($"runtime_reference_local(state, (Instance **)&l_{id}, l_r_{id});");
+            CL($"(void)l_{id};");
+        }
+        else
+        {
+            CL($"{cType} volatile l_{id} = 0;");
+            CL($"(void)l_{id};");
+        }
+    }
 
-    static DictionaryStack<int, Type> locals = new();
-    static Dictionary<int, Type> arguments = new();
-    static string FullName = "";
-    static string FullClassName = "";
-    static Type CurrentType = new ValueType("");
-    static Type? ReturnType = null;
-    static string Namespace = "";
-    static string Name = "";
-    static Class Current = null!;
-    static List<string> ImportedNamespaces = new();
-    static List<ClassType> UsingTypes = new();
-    static int Blocks = 0;
     public static (string Header, string Source) TranspileModule(
         List<Class> transpileClasses,
+        List<InterfaceDef> allInterfaces,
         List<Class> allClasses,
         List<string> importedNamespaces,
         List<ClassType> usingTypes,
         string AllHeaderFileName)
     {
-        ImportedNamespaces = importedNamespaces;
-        UsingTypes = usingTypes;
-        classes = allClasses;
-        h.Clear();
-        c.Clear();
-        m2.Clear();
-
-        CL($"#include \"{AllHeaderFileName}\"");
-        foreach (var cls in transpileClasses)
+        TranspileState? previousState = currentState;
+        currentState = new TranspileState();
+        try
         {
-            BothL();
+            ImportedNamespaces = importedNamespaces;
+            UsingTypes = usingTypes;
+            classes = allClasses;
+            interfaces = allInterfaces;
+            h.Clear();
+            c.Clear();
+            m2.Clear();
+
+            CL($"#include \"{AllHeaderFileName}\"");
+            foreach (var cls in transpileClasses)
+            {
+                BothL();
+                CL();
+                Current = cls;
+                Namespace = cls.Namespace;
+                Name = cls.Name;
+                FullName = $"{Namespace}_{Name}";
+                FullClassName = $"{Namespace} {Name}";
+                CurrentType = new ClassType(Namespace, Name);
+
+            Both(BuildSignatureNoArgs($"{FullName}*", $"new_{FullName}"));
             CL();
-            Current = cls;
-            Namespace = cls.Namespace;
-            Name = cls.Name;
-            FullName = $"{Namespace}_{Name}";
-            FullClassName = $"{Namespace} {Name}";
-            CurrentType = new ClassType(Namespace, Name);
-
-            if (cls.InstanceFields.Count > 0)
+            HL(";");
+            CL("{");
+            CL($"    {FullName}* instance = ({FullName}*)malloc(sizeof({FullName}));");
+            int fieldIndex = 0;
+            foreach (var f in GetAllInstanceFields(cls))
             {
-                Both(BuildSignatureNoArgs($"{FullName}*", $"new_{FullName}"));
-                CL();
-                HL(";");
-                CL("{");
-                CL($"    {FullName}* instance = ({FullName}*)malloc(sizeof({FullName}));");
-                int i = 0;
-                foreach (var f in cls.InstanceFields)
-                {
-                    if (f.Type is ValueType)
-                        CL($"    instance->f_{i++} = 0;");
-                    else
-                        CL($"    instance->f_{i++} = NULL;");
-                }
-                CL("    return instance;");
-                CL("}");
-                CL();
-                Both(BuildRealSignature($"void", $"free_{FullName}", $"{FullName}* instance"));
-                HL(";");
-                CL();
-                CL("{");
-                CL("    free(instance);");
-                CL("}");
+                if (f.Type is ValueType)
+                    CL($"    instance->f_{fieldIndex++} = 0;");
+                else
+                    CL($"    instance->f_{fieldIndex++} = NULL;");
             }
+            CL("    return instance;");
+            CL("}");
+            CL();
+            Both(BuildRealSignature($"void", $"free_{FullName}", $"{FullName}* instance"));
+            HL(";");
+            CL();
+            CL("{");
+            CL("    free(instance);");
+            CL("}");
 
-            if (cls.StaticFields.Count > 0)
-            {
-                CL();
-                HL($"extern static_{FullName} static_{FullName}_data;");
-                CL($"static_{FullName} static_{FullName}_data;");
-            }
+            CL();
+            HL($"extern static_{FullName} static_{FullName}_data;");
+            CL($"static_{FullName} static_{FullName}_data;");
 
             int methodCount = cls.Methods.Count;
             if (methodCount > 0)
@@ -190,6 +415,8 @@ public static class Transpiler
                 foreach (var method in cls.Methods)
                 {
                     ReturnType = method.ReturnType;
+                    volatileLocals = new HashSet<int>();
+                    CollectLocalReadsAfterTry(method.Body, volatileLocals);
                     CL();
                     string Return = method.ReturnType != null ? TranslateType(method.ReturnType) : "void";
                     string Name = $"{FullName}_{method.Name}";
@@ -268,23 +495,34 @@ public static class Transpiler
                 }
                 ML2("};");
             }
-        }
+            }
 
-        return (h.ToString(), c.ToString() + m2.ToString());
+            return (h.ToString(), c.ToString() + m2.ToString());
+        }
+        finally
+        {
+            currentState = previousState;
+        }
     }
     public static string TranspileTypes(
         List<Class> allClasses,
+        List<InterfaceDef> allInterfaces,
         Dictionary<string, List<string>> importedNamespacesByClass)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("#pragma once");
-        sb.AppendLine("#include \"runtime.h\"");
+        TranspileState? previousState = currentState;
+        currentState = new TranspileState();
+        try
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("#pragma once");
+            sb.AppendLine("#include \"runtime.h\"");
 
-        classes = allClasses;
-        var allNamespaces = allClasses
-            .Select(c => c.Namespace)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            classes = allClasses;
+            interfaces = allInterfaces;
+            var allNamespaces = allClasses
+                .Select(c => c.Namespace)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
         foreach (var cls in allClasses)
         {
@@ -303,36 +541,36 @@ public static class Transpiler
                 : allNamespaces;
 
             string fullName = $"{cls.Namespace}_{cls.Name}";
-            if (cls.InstanceFields.Count > 0 || cls.StaticFields.Count > 0)
-            {
-                sb.AppendLine();
-                sb.AppendLine();
-                sb.AppendLine($"// {cls.Namespace} { cls.Name}");
-            }
-            if (cls.InstanceFields.Count > 0)
-            {
-                sb.AppendLine($"");
-                sb.AppendLine($"typedef struct {fullName} {{");
-                sb.AppendLine("    Definition *definition;");
-                sb.AppendLine("    bool seen;");
-                int i = 0;
-                foreach (var f in cls.InstanceFields)
-                    sb.AppendLine($"    {TranslateType(f.Type)} f_{i++}; // {f.Name}");
-                sb.AppendLine($"}} {fullName};");
-            }
+            sb.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine($"// {cls.Namespace} { cls.Name}");
 
-            if (cls.StaticFields.Count > 0)
-            {
-                sb.AppendLine($"");
-                int i = 0;
-                sb.AppendLine($"typedef struct static_{fullName} {{");
+            sb.AppendLine($"");
+            sb.AppendLine($"typedef struct {fullName} {{");
+            sb.AppendLine("    Definition *definition;");
+            sb.AppendLine("    bool seen;");
+            int i = 0;
+            foreach (var f in GetAllInstanceFields(cls))
+                sb.AppendLine($"    {TranslateType(f.Type)} f_{i++}; // {f.Name}");
+            sb.AppendLine($"}} {fullName};");
+
+            sb.AppendLine($"");
+            i = 0;
+            sb.AppendLine($"typedef struct static_{fullName} {{");
+            if (cls.StaticFields.Count == 0)
+                sb.AppendLine("    uint8_t _pad;");
+            else
                 foreach (var f in cls.StaticFields)
                     sb.AppendLine($"    {TranslateType(f.Type)} f_{i++}; // {f.Name}");
-                sb.AppendLine($"}} static_{fullName};");
-            }
+            sb.AppendLine($"}} static_{fullName};");
         }
 
-        return sb.ToString();
+            return sb.ToString();
+        }
+        finally
+        {
+            currentState = previousState;
+        }
     }
 
     public static string TranspileDefinitions(List<Class> compiledClasses, List<Class> allClasses, string AllHeaderFileName)
@@ -355,7 +593,7 @@ public static class Transpiler
         foreach (var cls in allClasses)
         {
             string fullName = $"{cls.Namespace}_{cls.Name}";
-            bool hasInstanceRefs = cls.InstanceFields.Any(f => f.Type is ClassType);
+            bool hasInstanceRefs = GetAllInstanceFields(cls).Any(f => f.Type is ClassType);
             bool hasStaticRefs = cls.StaticFields.Any(f => f.Type is ClassType);
             if (hasInstanceRefs || hasStaticRefs)
             {
@@ -370,7 +608,7 @@ public static class Transpiler
                 sb.AppendLine("{");
                 sb.AppendLine($"    {fullName} *obj = ({fullName}*)instance;");
                 int i = 0;
-                foreach (var f in cls.InstanceFields)
+                foreach (var f in GetAllInstanceFields(cls))
                 {
                     if (f.Type is ClassType)
                         sb.AppendLine($"    if (obj->f_{i}) runtime_show_instance(state, (Instance*)obj->f_{i});");
@@ -403,34 +641,16 @@ public static class Transpiler
             sb.AppendLine("    {");
             sb.AppendLine($"        .namespace_ = \"{cls.Namespace}\",");
             sb.AppendLine($"        .name = \"{cls.Name}\",");
-            if (cls.InstanceFields.Count > 0)
-            {
-                sb.AppendLine($"        .instance_size = sizeof({fullName}),");
-                sb.AppendLine($"        .new = (InitFunc)new_{fullName},");
-                sb.AppendLine($"        .free = (FreeFunc)free_{fullName},");
-                sb.AppendLine(cls.InstanceFields.Any(f => f.Type is ClassType)
-                    ? $"        .show_refs = show_refs_{fullName},"
-                    : "        .show_refs = NULL,");
-            }
-            else
-            {
-                sb.AppendLine("        .instance_size = 0,");
-                sb.AppendLine("        .new = NULL,");
-                sb.AppendLine("        .free = NULL,");
-                sb.AppendLine("        .show_refs = NULL,");
-            }
-            if (cls.StaticFields.Count > 0)
-            {
-                sb.AppendLine($"        .static_data = (Instance**)&static_{fullName}_data,");
-                sb.AppendLine(cls.StaticFields.Any(f => f.Type is ClassType)
-                    ? $"        .show_static_refs = show_static_refs_{fullName},"
-                    : "        .show_static_refs = NULL,");
-            }
-            else
-            {
-                sb.AppendLine("        .static_data = NULL,");
-                sb.AppendLine("        .show_static_refs = NULL,");
-            }
+            sb.AppendLine($"        .instance_size = sizeof({fullName}),");
+            sb.AppendLine($"        .new = (InitFunc)new_{fullName},");
+            sb.AppendLine($"        .free = (FreeFunc)free_{fullName},");
+            sb.AppendLine(GetAllInstanceFields(cls).Any(f => f.Type is ClassType)
+                ? $"        .show_refs = show_refs_{fullName},"
+                : "        .show_refs = NULL,");
+            sb.AppendLine($"        .static_data = (Instance**)&static_{fullName}_data,");
+            sb.AppendLine(cls.StaticFields.Any(f => f.Type is ClassType)
+                ? $"        .show_static_refs = show_static_refs_{fullName},"
+                : "        .show_static_refs = NULL,");
             if (cls.Methods.Count > 0)
             {
                 sb.AppendLine($"        .methods = {fullName}_methods,");
@@ -462,6 +682,8 @@ public static class Transpiler
         sb.AppendLine("    runtime_show_instance = table->runtime_show_instance;");
         sb.AppendLine("    runtime_null_coalesce = table->runtime_null_coalesce;");
         sb.AppendLine("    runtime_unwrap = table->runtime_unwrap;");
+        sb.AppendLine("    runtime_throw = table->runtime_throw;");
+        sb.AppendLine("    runtime_exception = table->runtime_exception;");
         sb.AppendLine("}");
         return sb.ToString();
     }
@@ -474,27 +696,49 @@ public static class Transpiler
         {
             if (classType.Name == "Nullable" && classType.Namespace == "__")
                 return false;
-            Class @class = GetClass(classType);
             if (other is ClassType otherClassType)
             {
                 if (@otherClassType.Name == "Nullable" && @otherClassType.Namespace == "__")
                     return classType.Nullable;
-                Class @otherClass = GetClass(otherClassType);
-                return @class.Name == @otherClass.Name && @class.Namespace == @otherClass.Namespace && (ignoreNullable ? true : (classType.Nullable || !otherClassType.Nullable));
+                bool assignable;
+                if (TryGetInterface(classType, out var expectedInterface) && expectedInterface != null)
+                {
+                    if (TryGetInterface(otherClassType, out var actualInterface) && actualInterface != null)
+                        assignable = InterfaceKey(actualInterface) == InterfaceKey(expectedInterface);
+                    else
+                    {
+                        Class @otherClass = GetClass(otherClassType);
+                        assignable = ClassImplementsInterface(@otherClass, expectedInterface);
+                    }
+                }
+                else
+                {
+                    if (TryGetInterface(otherClassType, out _))
+                        assignable = false;
+                    else
+                    {
+                        Class @class = GetClass(classType);
+                        Class @otherClass = GetClass(otherClassType);
+                        assignable = ClassMatches(@otherClass, @class);
+                    }
+                }
+                bool nullableMatches = ignoreNullable || classType.Nullable || !otherClassType.Nullable;
+                return assignable && nullableMatches;
             }
         }
         return false;
     }
 
-    static bool GetMethod(ref Class? @class, string name, IEnumerable<Type> arguments, out Method? method)
+    static bool GetMethod(ref Class? @class, string name, IEnumerable<Type> arguments, out Method? method, bool searchHierarchy = false)
     {
+        List<Type> argumentList = arguments.ToList();
         method = null;
         Func<Method, bool> selector = m =>
             {
-                if (m.Name != name || m.Arguments.Count != arguments.Count())
+                if (m.Name != name || m.Arguments.Count != argumentList.Count)
                     return false;
                 for (int i = 0; i < m.Arguments.Count; i++)
-                    if (!TypeMatches(m.Arguments[i], arguments.ElementAt(i)))
+                    if (!TypeMatches(m.Arguments[i], argumentList[i]))
                         return false;
                 return true;
             };
@@ -526,15 +770,89 @@ public static class Transpiler
                     return false;
             }
         }
-        Method[] methods = @class.Methods.Where(selector).ToArray();
-        if (methods.Length == 1)
+        if (!searchHierarchy)
         {
-            method = methods[0];
+            Method[] methods = @class.Methods.Where(selector).ToArray();
+            if (methods.Length == 1)
+            {
+                method = methods[0];
+                return true;
+            }
+            return false;
+        }
+
+        Class topClass = GetTopBaseClass(@class);
+        Method[] topMethods = topClass.Methods.Where(selector).ToArray();
+        if (topMethods.Length == 1)
+        {
+            method = topMethods[0];
+            @class = topClass;
+            return true;
+        }
+        if (topMethods.Length > 1)
+            return false;
+        List<(Method method, Class owner)> found = new();
+        foreach (var candidateClass in classes)
+        {
+            if (ClassKey(candidateClass) == ClassKey(topClass))
+                continue;
+            if (!IsSubclassOf(candidateClass, topClass))
+                continue;
+            found.AddRange(candidateClass.Methods.Where(selector).Select(m => (m, candidateClass)));
+        }
+        if (found.Count == 1)
+        {
+            method = found[0].method;
+            @class = found[0].owner;
             return true;
         }
         return false;
     }
-
+    static (Class @class, Field field, int fieldId) ResolveUnqualifiedStaticField(string name, int line)
+    {
+        Class? @class = null;
+        bool found = false;
+        if (Current.StaticFields.Any(f => f.Name == name))
+        {
+            @class = Current;
+            found = true;
+        }
+        foreach (var usingType in UsingTypes)
+        {
+            Class @usingClass = GetClass(usingType);
+            if (@usingClass.StaticFields.Any(f => f.Name == name))
+            {
+                if (found)
+                    throw new Exception($"Field ambiguous on line {line}");
+                @class = @usingClass;
+                found = true;
+            }
+        }
+        if (!found || @class == null)
+            throw new Exception($"Field not found on line {line}");
+        int fieldId = @class.StaticFields.FindIndex(f => f.Name == name);
+        if (fieldId == -1)
+            throw new Exception($"Field not found on line {line}");
+        return (@class, @class.StaticFields[fieldId], fieldId);
+    }
+    static List<Class> GetRuntimeMatchClasses(ClassType targetType)
+    {
+        if (TryGetInterface(targetType, out var iface) && iface != null)
+            return classes.Where(c => ClassImplementsInterface(c, iface)).ToList();
+        Class targetClass = GetClass(targetType);
+        return classes.Where(c => ClassMatches(c, targetClass)).ToList();
+    }
+    static string BuildRuntimeTypeCheckExpr(string instanceExpr, ClassType targetType)
+    {
+        List<Class> matches = GetRuntimeMatchClasses(targetType);
+        if (matches.Count == 0)
+            return "0";
+        var checks = matches
+            .Select(c => $"{instanceExpr}->definition == get_{c.Namespace}_{c.Name}()")
+            .ToArray();
+        return $"({instanceExpr} != NULL && ({string.Join(" || ", checks)}))";
+    }
+    static int isTempId = 0;
     static void TranslateStatement(Statement statement)
     {
         switch (statement)
@@ -545,6 +863,31 @@ public static class Transpiler
                 {
                     C("use(");
                     TranslateExpression(call.Expression, false);
+                    CL(");");
+                    break;
+                }
+            case TryStatement tryStatement:
+                {
+                    C("try ");
+                    TranslateStatement(tryStatement.Body);
+                    indent++;
+                    CL($"catch {{");
+                    foreach (var (type, callStatement) in tryStatement.Catchers)
+                    {
+                        Class @class = GetClass(type);
+                        C($"if (strcmp(\"{@class.Namespace}\", exception->definition->namespace_) == 0 && strcmp(\"{type.Name}\", exception->definition->name) == 0) ");
+                        TranslateStatement(callStatement);
+                        C("else ");
+                    }
+                    indent--;
+                    CL($"runtime_throw(state, exception);");
+                    CL("} endcatch");
+                    break;
+                }
+            case ThrowStatement throwStatement:
+                {
+                    C("runtime_throw(state, ");
+                    TranslateExpression(throwStatement.Expression);
                     CL(");");
                     break;
                 }
@@ -563,7 +906,8 @@ public static class Transpiler
                         if (!TypeMatches(ReturnType, returnType))
                             throw new Exception($"Return type mismatch on line {returnStatement.Line}");
                         C("do_ret_value(");
-                        TranslateExpression(returnStatement.Expression, false);
+                        C($"({TranslateType(ReturnType)})");
+                        TranslateExpression(returnStatement.Expression);
                         CL(");");
                         break;
                     }
@@ -574,36 +918,14 @@ public static class Transpiler
                 }
             case AssignmentStatement assignmentStatement:
                 {
-                    Class? @class = null;
-                    if (Current.StaticFields.Any(f => f.Name == assignmentStatement.Name))
-                        @class = Current;
-                    else
-                    {
-                        bool done = false;
-                        foreach (var usingType in UsingTypes)
-                        {
-                            Class @usingClass = GetClass(usingType);
-                            if (@usingClass.StaticFields.Any(f => f.Name == assignmentStatement.Name))
-                            {
-                                if (done)
-                                    throw new Exception($"Assignment ambiguous on line {assignmentStatement.Line}");
-                                @class = @usingClass;
-                                done = true;
-                            }
-                        }
-                        if (!done)
-                            throw new Exception($"Field not found on line {assignmentStatement.Line}");
-                    }
-                    Field field = @class!.StaticFields.FirstOrDefault(f => f.Name == assignmentStatement.Name) ?? throw new Exception($"Field not found on line {assignmentStatement.Line}");
+                    var (@class, field, fieldId) = ResolveUnqualifiedStaticField(assignmentStatement.Name, assignmentStatement.Line);
                     Type type = GetType(assignmentStatement.Expression);
                     if (!TypeMatches(field.Type, type))
                         throw new Exception($"Static field type assignment mismatch on line {assignmentStatement.Line}");
-                    int fieldId = @class.StaticFields.FindIndex(f => f == field);
-                    if (fieldId == -1)
-                        throw new Exception($"Static field not found on line {assignmentStatement.Line}");
                     C($"static_data({@class.Namespace}_{@class.Name})->f_{fieldId}");
                     C($" = ");
-                    TranslateExpression(assignmentStatement.Expression, false);
+                    C($"({TranslateType(field.Type)})");
+                    TranslateExpression(assignmentStatement.Expression);
                     CL(";");
                     break;
                 }
@@ -615,7 +937,8 @@ public static class Transpiler
                     if (!TypeMatches(local!, type))
                         throw new Exception($"Local type assignment mismatch on line {localAssignmentStatement.Line}");
                     C($"set_local({localAssignmentStatement.ID}, ");
-                    TranslateExpression(localAssignmentStatement.Expression, false);
+                    C($"({TranslateType(local!)})");
+                    TranslateExpression(localAssignmentStatement.Expression);
                     CL(");");
                     break;
                 }
@@ -627,7 +950,8 @@ public static class Transpiler
                         throw new Exception($"Static field type assignment mismatch on line {staticFieldAssignmentStatement.Line}");
                     TranslateExpression(staticFieldAssignmentStatement.StaticField);
                     C($" = ");
-                    TranslateExpression(staticFieldAssignmentStatement.Expression, false);
+                    C($"({TranslateType(field)})");
+                    TranslateExpression(staticFieldAssignmentStatement.Expression);
                     CL(";");
                     break;
                 }
@@ -639,7 +963,8 @@ public static class Transpiler
                         throw new Exception($"Instance field type assignment mismatch on line {instanceFieldAssignmentStatement.Line}");
                     TranslateExpression(instanceFieldAssignmentStatement.InstanceField);
                     C($" = ");
-                    TranslateExpression(instanceFieldAssignmentStatement.Expression, false);
+                    C($"({TranslateType(field)})");
+                    TranslateExpression(instanceFieldAssignmentStatement.Expression);
                     CL(";");
                     break;
                 }
@@ -664,6 +989,37 @@ public static class Transpiler
                     }
                     break;
                 }
+            case IsStatement isStatement:
+                {
+                    Type sourceType = GetType(isStatement.Source);
+                    if (sourceType is not ClassType)
+                        throw new Exception($"is source must be class/interface type on line {isStatement.Line}");
+                    string tmpName = $"l_is_tmp_{isTempId++}";
+                    string targetCType = TranslateType(isStatement.TargetType);
+                    CL("{");
+                    indent++;
+                    C($"Instance* {tmpName} = (Instance*)");
+                    TranslateExpression(isStatement.Source, false);
+                    CL(";");
+                    CL($"if ({BuildRuntimeTypeCheckExpr(tmpName, isStatement.TargetType)})");
+                    CL("{");
+                    indent++;
+                    CL($"class_local({targetCType}, {isStatement.BindID});");
+                    CL($"set_local({isStatement.BindID}, ({targetCType}){tmpName});");
+                    locals.Push(new Dictionary<int, Type> { { isStatement.BindID, isStatement.TargetType } });
+                    TranslateStatement(isStatement.True);
+                    locals.Pop();
+                    indent--;
+                    CL("}");
+                    if (isStatement.False != null)
+                    {
+                        CL("else");
+                        TranslateStatement(isStatement.False);
+                    }
+                    indent--;
+                    CL("}");
+                    break;
+                }
             case BlockStatement blockStatement:
                 {
                     indent++;
@@ -673,7 +1029,7 @@ public static class Transpiler
                     {
                         CL($"block_enter({Blocks++});");
                         foreach (var local in blockStatement.Locals)
-                            CL($"{(local.Value is ClassType ? "class" : "value")}_local({TranslateType(local.Value)}, {local.Key});");
+                            EmitLocalDeclaration(local.Value, local.Key, volatileLocals.Contains(local.Key));
                         CL();
                     }
                     locals.Push(blockStatement.Locals);
@@ -693,425 +1049,4 @@ public static class Transpiler
                 throw new Exception($"Invalid statement on line {statement.Line}");
         }
     }
-    static List<Class> classes = new();
-    static Class GetClass(ClassType classType)
-    {
-        if (classType.CachedClass != null)
-            return classType.CachedClass;
-        List<Class> candidates = classes.Where(c => c.Name == classType.Name).Where(c => classType.Namespace != null ? c.Namespace.StartsWith(classType.Namespace) : true).Where(c => ImportedNamespaces.Contains(c.Namespace) || c.Namespace == Namespace).ToList();
-        if (candidates.Count > 1)
-            throw new Exception($"Multiple class candidates found for {classType.Namespace} {classType.Name} on line {classType.Line}");
-        else if (candidates.Count == 0)
-            throw new Exception($"No class found for {classType.Namespace} {classType.Name} on line {classType.Line}");
-        classType.CachedClass = candidates[0];
-        classType.Namespace = candidates[0].Namespace;
-        return candidates[0];
-    }
-    static Type GetType(Expression expression)
-    {
-        if (expression.CachedType != null)
-            return expression.CachedType;
-        Type? type;
-        switch (expression)
-        {
-            case LocalExpression localExpression:
-                return locals.TryGet(localExpression.ID, out type) ? type! : throw new Exception($"Local not found on line {localExpression.Line}");
-            case ArgumentExpression argumentExpression:
-                return arguments.TryGetValue(argumentExpression.ID, out type) ? type! : throw new Exception($"Argument not found on line {argumentExpression.Line}");
-            case IfExpression ifExpression:
-                {
-                    Type left = GetType(ifExpression.True);
-                    Type right = GetType(ifExpression.False);
-                    if (left is ClassType leftClass && right is ClassType rightClass)
-                        return leftClass with { Nullable = rightClass.Nullable || leftClass.Nullable };
-                    else
-                        return left;
-                }
-            case CallStaticExpression callStaticExpression:
-                {
-                    Method? method = callStaticExpression.cachedMethod;
-                    if (method == null)
-                    {
-                        Class? @class = GetClass(callStaticExpression.Callee);
-                        if (!GetMethod(ref @class, callStaticExpression.Name, callStaticExpression.Arguments.Select(GetType), out method))
-                            throw new Exception($"Ambiguous/nonexistent method call {callStaticExpression.Name} on line {callStaticExpression.Line}");
-                        callStaticExpression.cachedMethod = method;
-                    }
-                    return method!.ReturnType ?? throw new Exception($"Void returning method used in expression on line {callStaticExpression.Line}");
-                }
-            case CallInstanceExpression callInstanceExpression:
-                {
-                    Method? method = callInstanceExpression.cachedMethod;
-                    if (method == null)
-                    {
-                        type = GetType(callInstanceExpression.Arguments[0]);
-                        if (type is not ClassType classType)
-                            throw new Exception("Cannot call on a non-class type you moron");
-                        Class? @class = GetClass(classType);
-                        if (!GetMethod(ref @class, callInstanceExpression.Name, callInstanceExpression.Arguments.Select(GetType), out method))
-                            throw new Exception($"Ambiguous/nonexistent method call {callInstanceExpression.Name} on line {callInstanceExpression.Line}");
-                        callInstanceExpression.cachedMethod = method;
-                    }
-                    return method!.ReturnType ?? throw new Exception($"Void returning method used in expression on line {callInstanceExpression.Line}");
-                }
-            case CallExpression callExpression:
-                {
-                    Method? method = callExpression.cachedMethod;
-                    if (method == null)
-                    {
-                        Class? @class = null;
-                        if (!GetMethod(ref @class, callExpression.Name, callExpression.Arguments.Select(GetType), out method))
-                            throw new Exception($"Ambiguous/nonexistent method call {callExpression.Name} on line {callExpression.Line}");
-                        callExpression.cachedMethod = method;
-                    }
-                    return method!.ReturnType ?? throw new Exception($"Void returning method used in expression on line {callExpression.Line}");
-                }
-            case ClassExpression classExpression:
-                {
-                    throw new Exception($"Internal class expression exposed on line {expression.Line}, please report this");
-                }
-            case StaticFieldExpression staticFieldExpression:
-                {
-                    Class @class = GetClass(staticFieldExpression.Class);
-                    Field field = @class.StaticFields.FirstOrDefault(f => f.Name == staticFieldExpression.Field) ?? throw new Exception($"Static field {staticFieldExpression.Field} not found on line {staticFieldExpression.Line}");
-                    return field.Type;
-                }
-            case InstanceFieldExpression instanceFieldExpression:
-                {
-                    type = GetType(instanceFieldExpression.Instance);
-                    if (type is not ClassType classType)
-                        throw new Exception("Cannot access instance field on a non-class type you moron");
-                    Class @class = GetClass(classType);
-                    Field field = @class.InstanceFields.FirstOrDefault(f => f.Name == instanceFieldExpression.Field) ?? throw new Exception($"Instance field {instanceFieldExpression.Field} not found on line {instanceFieldExpression.Line}");
-
-                    return field.Type;
-                }
-            case NumberExpression numberExpression:
-                {
-                    return new ValueType("unknown_number", numberExpression.Line);
-                }
-            case StringExpression stringExpression:
-                {
-                    return new ValueType("cstr", stringExpression.Line);
-                }
-            case BinaryExpression binaryExpression:
-                {
-                    switch (binaryExpression.Op)
-                    {
-                        case "==":
-                        case "!=":
-                        case "&&":
-                        case "||":
-                        case "<":
-                        case ">":
-                        case "<=":
-                        case ">=":
-                            return new ValueType("bool", binaryExpression.Line);
-                        case "??":
-                            {
-                                Type left = GetType(binaryExpression.Left);
-                                if (left is not ClassType classType)
-                                    throw new Exception($"Cannot use ?? on a non-class type you moron on line {binaryExpression.Line}");
-                                return classType with { Nullable = false };
-                            }
-                        default:
-                            {
-                                Type left = GetType(binaryExpression.Left);
-                                Type right = GetType(binaryExpression.Right);
-                                if (left is not ValueType leftValue || right is not ValueType rightValue)
-                                    throw new Exception($"Cannot use {binaryExpression.Op} on a non-value type on line {binaryExpression.Line}");
-                                if (!TypeMatches(left, right))
-                                    throw new Exception($"Type mismatch of binary expression with operator {binaryExpression.Op} on line {binaryExpression.Line}, left is {leftValue.Name} and right is {rightValue.Name}");
-                                return left;
-                            }
-                    }
-                }
-            case UnaryExpression unaryExpression:
-                {
-                    return GetType(unaryExpression.Right);
-                }
-            case PostfixExpression postfixExpression:
-                {
-                    Type left = GetType(postfixExpression.Left);
-                    if (postfixExpression.Op == "@")
-                    {
-                        if (left is not ClassType classType)
-                            throw new Exception($"Cannot use @ on a non-class type on line {postfixExpression.Line}");
-                        if (!classType.Nullable)
-                            throw new Exception($"Cannot use @ on a non-nullable type on line {postfixExpression.Line}");
-                        return classType with { Nullable = false };
-                    }
-                    throw new Exception($"Invalid postfix operator {postfixExpression.Op} on line {postfixExpression.Line}");
-                }
-            case NewExpression newExpression:
-                {
-                    return CurrentType;
-                }
-            case NilExpression nilExpression:
-                {
-                    return new ClassType("__", "Nullable", nilExpression.Line) { Nullable = true };
-                }
-            default:
-                throw new Exception($"Invalid expression on line {expression.Line}");
-        }
-    }
-    static void TranslateArguments(List<Expression> arguments)
-    {
-        int i = 0;
-        foreach (var arg in arguments)
-        {
-            if (i++ > 0)
-                C(", ");
-            TranslateExpression(arg);
-        }
-    }
-    static void TranslateExpression(Expression expression, bool paren = true)
-    {
-        switch (expression)
-        {
-            case LocalExpression localExpression:
-                C($"l_{localExpression.ID}");
-                break;
-            case ArgumentExpression argumentExpression:
-                C($"p_{argumentExpression.ID}");
-                break;
-            case CallStaticExpression callStaticExpression:
-                {
-                    Method? method = callStaticExpression.cachedMethod;
-                    Class? @class = GetClass(callStaticExpression.Callee);
-                    if (method == null)
-                    {
-                        if (!GetMethod(ref @class, callStaticExpression.Name, callStaticExpression.Arguments.Select(GetType), out method))
-                            throw new Exception($"Ambiguous/nonexistent method call {callStaticExpression.Name} on line {callStaticExpression.Line}");
-                        callStaticExpression.cachedMethod = method;
-                    }
-                    if (paren)
-                        C("(");
-                    C("static_method_call(");
-                    C($"{BuildFunctionPointerType(method!)}, ");
-                    C($"{@class!.Namespace}_{@class.Name}, ");
-                    C($"{method!.i}, ");
-                    TranslateArguments(callStaticExpression.Arguments);
-                    C(")");
-                    if (paren)
-                        C(")");
-                    break;
-                }
-            case CallExpression callExpression:
-                {
-                    Method? method = callExpression.cachedMethod;
-                    Class? @class = callExpression.cachedClass;
-                    if (method == null || @class == null)
-                    {
-                        if (!GetMethod(ref @class, callExpression.Name, callExpression.Arguments.Select(GetType), out method))
-                            throw new Exception($"Ambiguous/nonexistent method call {callExpression.Name} on line {callExpression.Line}");
-                        callExpression.cachedMethod = method;
-                        callExpression.cachedClass = @class;
-                    }
-                    if (paren)
-                        C("(");
-                    C("static_method_call(");
-                    C($"{BuildFunctionPointerType(method!)}, ");
-                    C($"{@class!.Namespace}_{@class.Name}, ");
-                    C($"{method!.i}, ");
-                    TranslateArguments(callExpression.Arguments);
-                    C(")");
-                    if (paren)
-                        C(")");
-                    break;
-                }
-            case IfExpression ifExpression:
-                {
-                    Type left = GetType(ifExpression.True);
-                    Type right = GetType(ifExpression.False);
-                    if (!TypeMatches(left, right, true))
-                        throw new Exception($"If expression left and right type mismatch on line {ifExpression.Line}");
-                    if (paren)
-                        C("(");
-                    TranslateExpression(ifExpression.Condition);
-                    C(" ? ");
-                    TranslateExpression(ifExpression.True);
-                    C(" : ");
-                    TranslateExpression(ifExpression.False);
-                    if (paren)
-                        C(")");
-                    break;
-                }
-            case CallInstanceExpression callInstanceExpression:
-                {
-                    Type type = GetType(callInstanceExpression.Arguments[0]);
-                    if (type is not ClassType classType)
-                        throw new Exception($"Cannot call on a non-class type you moron on line {callInstanceExpression.Line}");
-                    if (classType.Nullable)
-                        throw new Exception($"Cannot call on a nullable type you moron on line {callInstanceExpression.Line}");
-                    Method? method = callInstanceExpression.cachedMethod;
-                    Class? @class = GetClass(classType);
-                    if (method == null)
-                    {
-                        if (!GetMethod(ref @class, callInstanceExpression.Name, callInstanceExpression.Arguments.Select(GetType), out method))
-                            throw new Exception($"Ambiguous/nonexistent method call {callInstanceExpression.Name} on line {callInstanceExpression.Line}");
-                        callInstanceExpression.cachedMethod = method;
-                    }
-                    if (paren)
-                        C("(");
-                    C("static_method_call(");
-                    C($"{BuildFunctionPointerType(method!)}, ");
-                    C($"{@class!.Namespace}_{@class.Name}, ");
-                    C($"{method!.i}, ");
-                    TranslateArguments(callInstanceExpression.Arguments);
-                    C(")");
-                    if (paren)
-                        C(")");
-                    break;
-                }
-            case ClassExpression classExpression:
-                {
-                    throw new Exception($"Weird class usage of {classExpression.Class.Namespace} {classExpression.Class.Name} on line {classExpression.Line}");
-                }
-            case StaticFieldExpression staticFieldExpression:
-                {
-                    Class @class = GetClass(staticFieldExpression.Class);
-                    int field = @class.StaticFields.FindIndex(f => f.Name == staticFieldExpression.Field);
-                    if (field == -1)
-                        throw new Exception($"Static field not found on line {staticFieldExpression.Line}");
-                    if (paren)
-                        C("(");
-                    C($"static_data({@class.Namespace}_{@class.Name})->f_{field}");
-                    if (paren)
-                        C(")");
-                    break;
-                }
-            case InstanceFieldExpression instanceFieldExpression:
-                {
-                    Type type = GetType(instanceFieldExpression.Instance);
-                    if (type is not ClassType classType)
-                        throw new Exception($"Cannot access instance field on a non-class type you moron on line {instanceFieldExpression.Line}");
-                    Class @class = GetClass(classType);
-                    int field = @class.InstanceFields.FindIndex(f => f.Name == instanceFieldExpression.Field);
-                    if (field == -1)
-                        throw new Exception($"Instance field not found on line {instanceFieldExpression.Line}");
-                    if (paren)
-                        C($"(");
-                    C($"(({@class.Namespace}_{@class.Name}*)(");
-                    TranslateExpression(instanceFieldExpression.Instance);
-                    C($"))->f_{field}");
-                    if (paren)
-                        C($")");
-                    break;
-                }
-            case NumberExpression numberExpression:
-                {
-                    C(numberExpression.Value);
-                    break;
-                }
-            case StringExpression stringExpression:
-                {
-                    C("\"");
-                    foreach (byte c in stringExpression.Value)
-                    {
-                        C("\\x");
-                        C(c.ToString("X2"));
-                    }
-                    C("\"");
-                    break;
-                }
-            case BinaryExpression binaryExpression:
-                {
-                    if (paren)
-                        C("(");
-                    Type left = GetType(binaryExpression.Left);
-                    Type right = GetType(binaryExpression.Right);
-                    switch (binaryExpression.Op)
-                    {
-                        case "??":
-                            {
-                                if (left is not ClassType leftClassType || right is not ClassType rightClassType)
-                                    throw new Exception($"Cannot use ?? on a non-class type on line {binaryExpression.Line}");
-                                Class @leftClass = GetClass(leftClassType);
-                                Class @rightClass = GetClass(rightClassType);
-                                if (@leftClass.Namespace != @rightClass.Namespace || @leftClass.Name != @rightClass.Name)
-                                    throw new Exception($"Types mismatch on line {binaryExpression.Line}");
-                                C($"({TranslateType(left)})runtime_null_coalesce((void*)");
-                                TranslateExpression(binaryExpression.Left);
-                                C($", (void*)");
-                                TranslateExpression(binaryExpression.Right);
-                                C($")");
-                                break;
-                            }
-                        case "&&":
-                            {
-                                TranslateExpression(binaryExpression.Left);
-                                C(" ? ");
-                                TranslateExpression(binaryExpression.Right);
-                                C(" : 0");
-                                break;
-                            }
-                        case "||":
-                            {
-                                TranslateExpression(binaryExpression.Left);
-                                C(" ? 1 : ");
-                                TranslateExpression(binaryExpression.Right);
-                                break;
-                            }
-                        default:
-                            {
-                                if (binaryExpression.Op != "==" && binaryExpression.Op != "!=")
-                                {
-                                    if (left is not ValueType || right is not ValueType)
-                                        throw new Exception($"Cannot use {binaryExpression.Op} on a non-value type on line {binaryExpression.Line}");
-                                    if (!TypeMatches(left, right))
-                                        throw new Exception($"Type mismatch on line {binaryExpression.Line}");
-                                }
-                                TranslateExpression(binaryExpression.Left);
-                                C(" ");
-                                C(binaryExpression.Op);
-                                C(" ");
-                                TranslateExpression(binaryExpression.Right);
-                                break;
-                            }
-                    }
-                    if (paren)
-                        C(")");
-                    break;
-                }
-            case UnaryExpression unaryExpression:
-                {
-                    if (paren)
-                        C("(");
-                    C(unaryExpression.Op);
-                    TranslateExpression(unaryExpression.Right);
-                    if (paren)
-                        C(")");
-                    break;
-                }
-            case PostfixExpression postfixExpression:
-                {
-                    if (postfixExpression.Op != "@")
-                        throw new Exception($"Invalid postfix operator {postfixExpression.Op} on line {postfixExpression.Line}");
-                    if (paren)
-                        C("(");
-                    C($"({TranslateType(GetType(postfixExpression.Left))})runtime_unwrap((void*)");
-                    TranslateExpression(postfixExpression.Left);
-                    C($", {postfixExpression.Line})");
-                    if (paren)
-                        C(")");
-                    break;
-                }
-            case NewExpression newExpression:
-                {
-                    if (paren)
-                        C("(");
-                    C($"({TranslateType(CurrentType)})runtime_new(state, \"{Namespace}\", \"{Name}\")");
-                    if (paren)
-                        C(")");
-                    break;
-                }
-            case NilExpression nilExpression:
-                {
-                    C("NULL");
-                    break;
-                }
-        }
-    }
-
 }

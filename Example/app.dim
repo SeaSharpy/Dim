@@ -12,6 +12,8 @@ class App {
         StdTests.Run!;
         MathTests.Run!;
         ConvertTests.Run!;
+        TryCatchThrowTests.Run!;
+        InheritanceTests.Run!;
         AnyListTests.Run();
         AnyListTests.Stress(50000);
         StressTests.Run(200000, 5000);

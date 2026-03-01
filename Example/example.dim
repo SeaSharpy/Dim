@@ -128,6 +128,389 @@ class Maybe {
     }
 }
 
+class ThrowA {
+    static ThrowA New! {
+        ThrowA e = new;
+        return e;
+    }
+}
+
+class ThrowB {
+    static ThrowB New! {
+        ThrowB e = new;
+        return e;
+    }
+}
+
+class TryCatchThrowTests {
+    static int state;
+    static int passCount;
+    static int failCount;
+
+    static void Run! {
+        double t0 = Log.Begin("Try/catch/throw");
+
+        passCount = 0;
+        failCount = 0;
+
+        TestNoThrowSkipsCatch!;
+        TestTypeMatchedCatch!;
+        TestLaterCatchMatches!;
+        TestRethrowToOuterCatch!;
+        TestUnmatchedPropagatesToOuter!;
+        TestValueLocalInCatchArg!;
+        TestClassLocalInCatchArg!;
+        TestLocalReadAfterTry!;
+        TestMultiLocalAfterCatchArgCall!;
+        TestMixedTypeLocalsReadAfterCatch!;
+        TestNestedCallArgFromLocalsInCatch!;
+
+        Log.Header("summary");
+        Log.Item("passed", MathC.ToString(passCount));
+        Log.Item("failed", MathC.ToString(failCount));
+        Log.End("Try/catch/throw", t0);
+    }
+
+    static void CheckInt(String label, int got, int want) {
+        bool ok = got == want;
+        if ok;
+            passCount = passCount + 1;
+        else
+            failCount = failCount + 1;
+        String line = "got=".Concat(MathC.ToString(got))
+            .Concat(" want=")
+            .Concat(MathC.ToString(want))
+            .Concat(" ok=")
+            .Concat(MathC.ToString(ok));
+        Log.Item(label, line);
+    }
+
+    static void Reset! {
+        state = 0;
+    }
+
+    static void BodyNoThrow! {
+        state = state + 1;
+    }
+
+    static void BodyThrowA! {
+        throw ThrowA.New!;
+    }
+
+    static void BodyThrowB! {
+        throw ThrowB.New!;
+    }
+
+    static void CatchA! {
+        state = state + 100;
+    }
+
+    static void CatchB! {
+        state = state + 1000;
+    }
+
+    static void CatchOuter! {
+        state = state + 10000;
+    }
+
+    static void CatchWithInt(int v) {
+        state = state + v;
+    }
+
+    static void CatchWithString(String s) {
+        state = state + s.Length!;
+    }
+
+    static int Sum2(int a, int b) => a + b;
+
+    static int Sum3(int a, int b, int c) => a + b + c;
+
+    static void CatchWithComputedInt(int v) {
+        state = state + v;
+    }
+
+    static void RethrowA! {
+        throw ThrowA.New!;
+    }
+
+    static void InnerWrongCatchOnlyB! {
+        try BodyThrowA!;
+        catch ThrowB CatchB!;
+    }
+
+    static void InnerRethrow! {
+        try BodyThrowA!;
+        catch ThrowA RethrowA!;
+    }
+
+    static void TestNoThrowSkipsCatch! {
+        Reset!;
+        try BodyNoThrow!;
+        catch ThrowA CatchA!;
+        CheckInt("no-throw skips catch", state, 1);
+    }
+
+    static void TestTypeMatchedCatch! {
+        Reset!;
+        try BodyThrowA!;
+        catch ThrowA CatchA!;
+        catch ThrowB CatchB!;
+        CheckInt("throw A hits catch A", state, 100);
+    }
+
+    static void TestLaterCatchMatches! {
+        Reset!;
+        try BodyThrowB!;
+        catch ThrowA CatchA!;
+        catch ThrowB CatchB!;
+        CheckInt("throw B hits later catch", state, 1000);
+    }
+
+    static void TestRethrowToOuterCatch! {
+        Reset!;
+        try InnerRethrow!;
+        catch ThrowA CatchOuter!;
+        CheckInt("rethrow reaches outer catch", state, 10000);
+    }
+
+    static void TestUnmatchedPropagatesToOuter! {
+        Reset!;
+        try InnerWrongCatchOnlyB!;
+        catch ThrowA CatchOuter!;
+        CheckInt("unmatched inner catch propagates", state, 10000);
+    }
+
+    static void TestValueLocalInCatchArg! {
+        Reset!;
+        int carry = 37;
+        try BodyThrowA!;
+        catch ThrowA CatchWithInt(carry);
+        CheckInt("value local in catch arg", state, 37);
+    }
+
+    static void TestClassLocalInCatchArg! {
+        Reset!;
+        String txt = "abcde";
+        try BodyThrowA!;
+        catch ThrowA CatchWithString(txt);
+        CheckInt("class local in catch arg", state, 5);
+    }
+
+    static void TestLocalReadAfterTry! {
+        Reset!;
+        int carry = 9;
+        try BodyThrowA!;
+        catch ThrowA CatchA!;
+        int after = carry + state;
+        CheckInt("local read after try", after, 109);
+    }
+
+    static void TestMultiLocalAfterCatchArgCall! {
+        Reset!;
+        int a = 5;
+        int b = 7;
+        int c = 11;
+        try BodyThrowA!;
+        catch ThrowA CatchWithComputedInt(Sum3(a, b, c));
+        int after = Sum2(a, b) + c + state;
+        CheckInt("multi local after catch", after, 46);
+    }
+
+    static void TestMixedTypeLocalsReadAfterCatch! {
+        Reset!;
+        String s = "wolf";
+        int n = 8;
+        try BodyThrowA!;
+        catch ThrowA CatchWithComputedInt(Sum2(n, s.Length!));
+        int after = n + s.Length! + state;
+        CheckInt("mixed locals after catch", after, 24);
+    }
+
+    static void TestNestedCallArgFromLocalsInCatch! {
+        Reset!;
+        int x = 2;
+        int y = 3;
+        int z = 4;
+        try BodyThrowA!;
+        catch ThrowA CatchWithComputedInt(Sum2(Sum2(x, y), z));
+        int after = state + Sum3(x, y, z);
+        CheckInt("nested catch arg locals", after, 18);
+    }
+}
+
+interface PetLike {
+    int Score();
+    String Label();
+}
+
+class Creature {
+    int age;
+
+    static Creature NewAge(int v) {
+        Creature c = new;
+        c.age = v;
+        return c;
+    }
+
+    int NextYear! => self.age + 1;
+}
+
+class Dog : Creature, PetLike {
+    int bark;
+
+    static Dog New! {
+        Dog d = new;
+        return d;
+    }
+
+    static Dog NewAt(int age, int bark) {
+        Dog d = new;
+        d.age = age;
+        d.bark = bark;
+        return d;
+    }
+
+    void Train(int hours) {
+        self.bark = self.bark + hours;
+        self.age = self.age + 1;
+    }
+
+    int Score! => (self.age * 10) + self.bark;
+
+    String Label! => "Dog(age=".Concat(MathC.ToString(self.age))
+        .Concat(", bark=")
+        .Concat(MathC.ToString(self.bark))
+        .Concat(")");
+
+    int OnlyDog! => self.age + self.bark;
+}
+
+class Cat : Creature, PetLike {
+    int naps;
+
+    static Cat New! {
+        Cat c = new;
+        return c;
+    }
+
+    static Cat NewAt(int age, int naps) {
+        Cat c = new;
+        c.age = age;
+        c.naps = naps;
+        return c;
+    }
+
+    void SleepMore(int count) {
+        self.naps = self.naps + count;
+        self.age = self.age + 1;
+    }
+
+    int Score! => (self.age * 5) + self.naps;
+
+    String Label! => "Cat(age=".Concat(MathC.ToString(self.age))
+        .Concat(", naps=")
+        .Concat(MathC.ToString(self.naps))
+        .Concat(")");
+
+    int OnlyCat! => self.age + self.naps;
+}
+
+class InheritanceTests {
+    static void Run! {
+        double t0 = Log.Begin("Inheritance");
+
+        Dog d = Dog.NewAt(10, 7);
+        Cat c = Cat.NewAt(3, 4);
+        Creature baseOnly = Creature.NewAge(20);
+
+        d.Train(2);
+        c.SleepMore(3);
+        int baseNext = baseOnly.NextYear!;
+
+        Creature asCreature = d; // compile-time upcast Dog -> Creature
+        asCreature.age = asCreature.age + 5; // inherited field through base view
+
+        Any boxedFromCreature = asCreature.Box!; // put Dog instance into Any through Creature view
+        Dog? roundTripDog = Dog.Unbox(boxedFromCreature); // cast back out
+        Creature? roundTripCreature = Creature.Unbox(boxedFromCreature); // exact-type unbox (expected nil for Dog)
+        PetLike petFromDog = d; // class -> interface assignment
+
+        int petScore = -1;
+        String petLabel = "none";
+        is Dog fromPet = petFromDog;
+        {
+            petScore = fromPet.Score!;
+            petLabel = fromPet.Label!;
+        }
+        else
+        {
+            petScore = -999;
+            petLabel = "bad";
+        }
+
+        int noElseHit = 0;
+        is Cat noElse = petFromDog;
+            noElseHit = 1;
+
+        int exprDogOwn = is Dog x = petFromDog; x.OnlyDog! else -1;
+        int exprCatOwn = is Cat y = petFromDog; y.OnlyCat! else -2;
+        Dog? asDog = petFromDog as Dog;
+        Cat? asCat = petFromDog as Cat;
+        int asDogOwn = -3;
+        if asDog != nil;
+            asDogOwn = asDog@.OnlyDog!;
+
+        int dogScore = d.Score!;
+        int catScore = c.Score!;
+        int dogOwn = d.OnlyDog!;
+        int catOwn = c.OnlyCat!;
+        int dogRoundTripOwn = -1;
+        if roundTripDog != nil;
+            dogRoundTripOwn = roundTripDog@.OnlyDog!;
+
+        Log.Item("dog label", d.Label!);
+        Log.Item("cat label", c.Label!);
+        Log.Item("base next", MathC.ToString(baseNext));
+        Log.Item("dog score", MathC.ToString(dogScore));
+        Log.Item("cat score", MathC.ToString(catScore));
+        Log.Item("dog as creature age", MathC.ToString(asCreature.age));
+        Log.Item("dog roundtrip ok", MathC.ToString(roundTripDog != nil));
+        Log.Item("creature exact unbox nil", MathC.ToString(roundTripCreature == nil));
+        Log.Item("pet score via is", MathC.ToString(petScore));
+        Log.Item("pet label via is", petLabel);
+        Log.Item("expr dog own", MathC.ToString(exprDogOwn));
+        Log.Item("expr cat own", MathC.ToString(exprCatOwn));
+        Log.Item("as dog ok", MathC.ToString(asDog != nil));
+        Log.Item("as cat nil", MathC.ToString(asCat == nil));
+        Log.Item("as dog own", MathC.ToString(asDogOwn));
+        Log.Item("is no-else hit", MathC.ToString(noElseHit));
+
+        Log.Item("dog own", MathC.ToString(dogOwn));
+        Log.Item("cat own", MathC.ToString(catOwn));
+        Log.Item("dog roundtrip own", MathC.ToString(dogRoundTripOwn));
+        Log.Item("ok",
+            MathC.ToString(
+                baseNext == 21 &&
+                dogScore == 169 &&
+                catScore == 27 &&
+                asCreature.age == 16 &&
+                dogOwn == 25 &&
+                catOwn == 11 &&
+                roundTripDog != nil &&
+                roundTripCreature == nil &&
+                dogRoundTripOwn == dogOwn &&
+                petScore == dogScore &&
+                exprDogOwn == dogOwn &&
+                exprCatOwn == -2 &&
+                asDog != nil &&
+                asCat == nil &&
+                asDogOwn == dogOwn &&
+                noElseHit == 0));
+
+        Log.End("Inheritance", t0);
+    }
+}
+
 class StdTests {
     static void Run! {
         double t0 = Log.Begin("STD String + core");
@@ -887,7 +1270,7 @@ class MemoryTests {
         Log.Line("alloc ms", MathC.ToString(allocEnd - allocStart));
 
         double holdStart = TimeMS!;
-        double holdUntil = holdStart + 5000;
+        double holdUntil = holdStart + 1000;
         ulong spin = 0;
         while TimeMS! < holdUntil;
         {
@@ -902,7 +1285,7 @@ class MemoryTests {
         Log.Line("release ms", MathC.ToString(releaseEnd - releaseStart));
         Log.Line("after clear", MathC.ToString(entries.Count!));
         holdStart = TimeMS!;
-        holdUntil = holdStart + 2000;
+        holdUntil = holdStart + 1000;
         spin = 0;
         while TimeMS! < holdUntil;
         {

@@ -1325,4 +1325,6 @@ EXPORT void getDefinitions(APITable *table)
     runtime_show_instance = table->runtime_show_instance;
     runtime_null_coalesce = table->runtime_null_coalesce;
     runtime_unwrap = table->runtime_unwrap;
+    runtime_throw = table->runtime_throw;
+    runtime_exception = table->runtime_exception;
 }

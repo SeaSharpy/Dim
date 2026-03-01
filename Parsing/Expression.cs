@@ -28,6 +28,8 @@ public record StringExpression(string Value, int Line) : Expression(Line);
 public record BinaryExpression(Expression Left, string Op, Expression Right) : Expression(Left.Line);
 public record UnaryExpression(string Op, Expression Right, int Line) : Expression(Line);
 public record PostfixExpression(Expression Left, string Op, int Line) : Expression(Line);
+public record AsExpression(Expression Source, ClassType TargetType, int Line) : Expression(Line);
 public record IfExpression(Expression Condition, Expression True, Expression False, int Line) : Expression(Line);
+public record IsExpression(ClassType TargetType, int BindID, Expression Source, Expression True, Expression False, int Line) : Expression(Line);
 public record NewExpression(int Line) : Expression(Line);
 public record NilExpression(int Line) : Expression(Line);

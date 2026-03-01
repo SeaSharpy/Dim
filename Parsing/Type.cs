@@ -47,16 +47,22 @@ public record ClassType : Type
     {
         writer.Write(true);
         writer.Write(true);
+        string ns;
+        string name;
         if (CachedClass != null)
         {
-            writer.Write(CachedClass.Namespace);
-            writer.Write(CachedClass.Name);
-            return;
+            ns = CachedClass.Namespace;
+            name = CachedClass.Name;
         }
-        if (string.IsNullOrWhiteSpace(Namespace))
-            throw new Exception($"Class type missing namespace for {Name}");
-        writer.Write(Namespace);
-        writer.Write(Name);
+        else
+        {
+            if (string.IsNullOrWhiteSpace(Namespace))
+                throw new Exception($"Class type missing namespace for {Name}");
+            ns = Namespace;
+            name = Name;
+        }
+        writer.Write(ns);
+        writer.Write(name);
         writer.Write(Nullable);
     }
 };

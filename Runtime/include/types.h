@@ -6,6 +6,7 @@ typedef struct Definition Definition;
 typedef struct RuntimeState RuntimeState;
 typedef struct Instance Instance;
 typedef struct ReferenceLocal ReferenceLocal;
+typedef struct ErrorCatcher ErrorCatcher;
 
 typedef Instance *(*InitFunc)(void);
 typedef void (*FreeFunc)(Instance *thing);
@@ -21,6 +22,8 @@ typedef void (*RuntimeAllocFunc)(RuntimeState *state, size_t size);
 typedef void (*RuntimeShowInstanceFunc)(RuntimeState *state, Instance *instance);
 typedef void *(*RuntimeNullCoalesceFunc)(void *a, void *b);
 typedef void *(*RuntimeUnwrapFunc)(void *a, int line);
+typedef void (*RuntimeThrowFunc)(RuntimeState *state, Instance *exception);
+typedef Instance *(*RuntimeExceptionFunc)(RuntimeState *state);
 
 typedef struct APITable
 {
@@ -39,6 +42,8 @@ typedef struct APITable
     RuntimeShowInstanceFunc runtime_show_instance;
     RuntimeNullCoalesceFunc runtime_null_coalesce;
     RuntimeUnwrapFunc runtime_unwrap;
+    RuntimeThrowFunc runtime_throw;
+    RuntimeExceptionFunc runtime_exception;
 } APITable;
 
 typedef struct Method
@@ -68,6 +73,8 @@ typedef struct RuntimeState
     Instance **instances;
     DllHandle **dlls;
     Instance **gc_worklist;
+    ErrorCatcher *error_catcher;
+    Instance *exception;
     size_t allocated_bytes;
     size_t gc_threshold;
 } RuntimeState;
@@ -83,3 +90,9 @@ typedef struct ReferenceLocal
     Instance **instance;
     ReferenceLocal *prev;
 } ReferenceLocal;
+
+typedef struct ErrorCatcher 
+{
+    jmp_buf *buf;
+    ErrorCatcher *prev;
+} ErrorCatcher;

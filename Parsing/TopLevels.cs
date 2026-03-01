@@ -3,13 +3,29 @@ public record Method(string Name, List<Type> Arguments, Type? ReturnType, Statem
 {
     public int i;
 };
+public record InterfaceMethod(string Name, List<Type> Arguments, Type? ReturnType, int Line);
 public record Field(string Name, Type Type, int Line);
-public record Class(string Namespace, string Name, int Line, List<Method> Methods, List<Field> StaticFields, List<Field> InstanceFields)
+public record InterfaceDef(string Namespace, string Name, int Line, List<InterfaceMethod> Methods);
+public record Class(
+    string Namespace,
+    string Name,
+    int Line,
+    List<Method> Methods,
+    List<Field> StaticFields,
+    List<Field> InstanceFields,
+    ClassType? Base = null,
+    List<ClassType>? Interfaces = null)
 {
     public void BinaryOut(BinaryWriter writer, List<Class> classes)
     {
         writer.Write(Namespace);
         writer.Write(Name);
+        writer.Write(Base != null);
+        if (Base != null)
+            Base.BinaryOut(writer, classes);
+        writer.Write(Interfaces?.Count ?? 0);
+        foreach (var iface in Interfaces ?? [])
+            iface.BinaryOut(writer, classes);
         writer.Write(Methods.Count);
         writer.Write(StaticFields.Count);
         writer.Write(InstanceFields.Count);
@@ -38,6 +54,14 @@ public record Class(string Namespace, string Name, int Line, List<Method> Method
     {
         string ns = reader.ReadString();
         string name = reader.ReadString();
+        ClassType? baseType = null;
+        bool hasBase = reader.ReadBoolean();
+        if (hasBase)
+            baseType = Type.BinaryIn(reader) as ClassType ?? throw new Exception("Invalid base class type in binary");
+        int interfaceCount = reader.ReadInt32();
+        var interfaces = new List<ClassType>(interfaceCount);
+        for (int i = 0; i < interfaceCount; i++)
+            interfaces.Add(Type.BinaryIn(reader) as ClassType ?? throw new Exception("Invalid interface type in binary"));
         int methodCount = reader.ReadInt32();
         int staticFieldCount = reader.ReadInt32();
         int instanceFieldCount = reader.ReadInt32();
@@ -69,6 +93,6 @@ public record Class(string Namespace, string Name, int Line, List<Method> Method
             Type fieldType = Type.BinaryIn(reader);
             instanceFields.Add(new Field(fieldName, fieldType, 0));
         }
-        return new Class(ns, name, 0, methods, staticFields, instanceFields);
+        return new Class(ns, name, 0, methods, staticFields, instanceFields, baseType, interfaces);
     }
 };
